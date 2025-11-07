@@ -386,12 +386,32 @@ fi
 ACME_CMD="$ACME_CMD --log $ACME_CONFIG_DIR/issue-$PRIMARY_DOMAIN.log"
 
 # 执行申请
+# 加载 DNS 配置（如果使用 DNS 验证）
+DNS_CONFIG=""
+if [[ "$METHOD" == "dns" ]]; then
+    if [[ -f "/etc/acme/dns-config" ]]; then
+        DNS_CONFIG="source /etc/acme/dns-config;"
+        log_info "✓ 已加载 DNS API 配置文件"
+    else
+        log_warn "未找到 DNS 配置文件 /etc/acme/dns-config"
+        log_warn "请先创建并配置 DNS API 密钥，例如："
+        log_warn "  sudo mkdir -p /etc/acme"
+        log_warn "  sudo tee /etc/acme/dns-config <<EOF"
+        log_warn "export CF_Token='your_cloudflare_api_token'"
+        log_warn "export CF_Account_ID='your_cloudflare_account_id'"
+        log_warn "EOF"
+        log_warn "  sudo chmod 600 /etc/acme/dns-config"
+        exit 1
+    fi
+fi
+
 sudo -u "$ACME_USER" -H bash -c "
     export HOME=$ACME_HOME/home
     cd $ACME_HOME/home
     if [[ -f $ACME_HOME/.profile ]]; then
         . $ACME_HOME/.profile
     fi
+    $DNS_CONFIG
     $ACME_CMD
 " || {
     log_error "证书申请失败，请检查日志："
@@ -761,3 +781,7 @@ log_info "重要提醒："
 log_info "  - 证书文件: /var/lib/acme/certs/"
 log_info "  - 配置日志: /var/lib/acme/config/"
 log_info "  - 系统日志: journalctl -u acme-renew"
+log_info ""
+log_info "DNS 验证配置："
+log_info "  如需使用 DNS 验证（支持泛域名），请运行："
+log_info "  sudo bash acme-dns-setup.sh"

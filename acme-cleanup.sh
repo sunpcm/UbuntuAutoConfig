@@ -68,6 +68,11 @@ rm -rf "$ACME_HOME/certs"/*
 # 清理 logrotate
 rm -f /etc/logrotate.d/acme
 
+# 清理 DNS 配置
+log_info "清理 DNS 配置..."
+rm -f /etc/acme/dns-config
+rmdir /etc/acme 2>/dev/null || true
+
 # 清理辅助脚本
 log_info "清理辅助脚本..."
 rm -f /usr/local/bin/acme-add
