@@ -65,7 +65,7 @@
 
 ```bash
 # 如果是 git 仓库
-git clone <repository-url>
+git clone https://github.com/sunpcm/UbuntuAutoConfig.git
 cd ansible_server_setup
 
 # 或者直接创建目录并复制文件
