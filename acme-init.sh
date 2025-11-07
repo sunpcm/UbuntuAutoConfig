@@ -126,18 +126,38 @@ else
     fi
     
     log_info "执行 acme.sh 安装..."
-    sudo -u "$ACME_USER" -H sh -c "
+    
+    # 复制临时脚本到 acme 用户可访问的位置
+    ACME_TEMP_SCRIPT="$ACME_HOME/home/acme-install.sh"
+    cp "$TEMP_SCRIPT" "$ACME_TEMP_SCRIPT"
+    chown "$ACME_USER:$ACME_USER" "$ACME_TEMP_SCRIPT"
+    chmod 0755 "$ACME_TEMP_SCRIPT"
+    
+    sudo -u "$ACME_USER" -H bash -c "
         cd $ACME_HOME/home
         # 确保加载安全配置
-        source $ACME_HOME/.profile
-        sh $TEMP_SCRIPT email=$ACME_EMAIL 2>&1 | tee $ACME_CONFIG_DIR/install.log
+        if [[ -f $ACME_HOME/.profile ]]; then
+            . $ACME_HOME/.profile
+        fi
+        bash $ACME_TEMP_SCRIPT email=$ACME_EMAIL 2>&1 | tee $ACME_CONFIG_DIR/install.log
     " || {
         log_error "acme.sh 安装失败，请检查日志：$ACME_CONFIG_DIR/install.log"
         exit 1
     }
     
+    # 清理临时文件
+    rm -f "$ACME_TEMP_SCRIPT"
+    
     rm -f "$TEMP_SCRIPT"
-    log_info "✓ acme.sh 安装成功"
+    
+    # 验证安装是否成功
+    if [[ -f "$ACME_HOME/home/.acme.sh/acme.sh" ]]; then
+        log_info "✓ acme.sh 安装成功"
+    else
+        log_error "acme.sh 安装失败，文件不存在"
+        cat "$ACME_CONFIG_DIR/install.log" 2>/dev/null || echo "无法读取安装日志"
+        exit 1
+    fi
     
     # P2 - 加固 account.key 权限
     log_info "加固 ACME 账户私钥权限..."
@@ -151,9 +171,11 @@ fi
 
 # P10 - 设置默认 CA 为 Let's Encrypt
 log_info "配置默认 CA 为 Let's Encrypt..."
-sudo -u "$ACME_USER" -H sh -c "
+sudo -u "$ACME_USER" -H bash -c "
     cd $ACME_HOME/home
-    source $ACME_HOME/.profile
+    if [[ -f $ACME_HOME/.profile ]]; then
+        . $ACME_HOME/.profile
+    fi
     ./.acme.sh/acme.sh --set-default-ca --server letsencrypt
 " 2>/dev/null || log_warn "设置默认 CA 失败，将使用 acme.sh 默认设置"
 
@@ -364,7 +386,9 @@ ACME_CMD="$ACME_CMD --log $ACME_CONFIG_DIR/issue-$PRIMARY_DOMAIN.log"
 # 执行申请
 sudo -u "$ACME_USER" -H bash -c "
     cd $ACME_HOME/home
-    source $ACME_HOME/.profile
+    if [[ -f $ACME_HOME/.profile ]]; then
+        . $ACME_HOME/.profile
+    fi
     $ACME_CMD
 " || {
     log_error "证书申请失败，请检查日志："
@@ -398,7 +422,9 @@ fi
 
 sudo -u "$ACME_USER" -H bash -c "
     cd $ACME_HOME/home
-    source $ACME_HOME/.profile
+    if [[ -f $ACME_HOME/.profile ]]; then
+        . $ACME_HOME/.profile
+    fi
     $ACME_HOME/home/.acme.sh/acme.sh \
         --install-cert \
         -d $PRIMARY_DOMAIN \
@@ -539,7 +565,9 @@ if [[ $# -gt 0 ]]; then
     
     sudo -u "$ACME_USER" -H bash -c "
         cd $ACME_HOME/home
-        source $ACME_HOME/.profile
+        if [[ -f $ACME_HOME/.profile ]]; then
+            . $ACME_HOME/.profile
+        fi
         ./.acme.sh/acme.sh --list | grep -E '(Main_Domain|Created|Renew).*$DOMAIN' || echo '未找到该域名的证书'
     "
 else
@@ -549,7 +577,9 @@ else
     
     sudo -u "$ACME_USER" -H bash -c "
         cd $ACME_HOME/home
-        source $ACME_HOME/.profile
+        if [[ -f $ACME_HOME/.profile ]]; then
+            . $ACME_HOME/.profile
+        fi
         ./.acme.sh/acme.sh --list
     "
 fi
@@ -667,7 +697,9 @@ echo ""
 log_info "吊销证书..."
 sudo -u "$ACME_USER" -H bash -c "
     cd $ACME_HOME/home
-    source $ACME_HOME/.profile
+    if [[ -f $ACME_HOME/.profile ]]; then
+        . $ACME_HOME/.profile
+    fi
     ./.acme.sh/acme.sh --revoke -d $DOMAIN --log $ACME_CONFIG_DIR/revoke-$DOMAIN.log
 " || {
     log_error "证书吊销失败，请检查日志: $ACME_CONFIG_DIR/revoke-$DOMAIN.log"

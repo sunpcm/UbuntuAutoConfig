@@ -17,7 +17,7 @@
 
 ```bash
 # 下载脚本
-wget https://github.com/sunpcm/acme-init.sh
+wget https://raw.githubusercontent.com/sunpcm/UbuntuAutoConfig/main/acme-init.sh
 
 # 使用默认邮箱初始化
 sudo bash acme-init.sh
@@ -153,18 +153,29 @@ sudo systemctl start acme-renew.service
 ### 核心技术栈
 
 **基础技术**
+
 - **Bash Scripting**: 主要开发语言，版本要求 4.0+
 - **ACME.sh**: 证书签发客户端，支持 100+ CA 和 DNS 提供商
 - **systemd**: 服务管理和定时任务
 - **logrotate**: 日志轮替管理
 
 **安全技术**
+
+- **预下载校验**: 脚本开始就下载并校验 acme.sh，提前发现网络问题
 - **umask 控制**: 强制私钥文件 600 权限
 - **用户隔离**: 专用 acme 系统用户，无登录权限
 - **权限分离**: 证书文件 root:ssl-cert 组控制
 - **脚本校验**: 防止 curl|sh 供应链攻击
 
+**安装策略优化**
+```text
+传统方式: 创建用户 -> 安装 acme.sh -> 配置
+新策略:   预下载校验 -> 创建用户 -> 安装 -> 配置
+        ↑ 提前失败，避免半成品状态
+```
+
 **Web 服务器集成**
+
 - **Nginx/OpenResty**: 自动检测和重载
 - **Apache**: 支持扩展 (需自定义 reloadcmd)
 - **其他 Web 服务器**: 通过配置支持
