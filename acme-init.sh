@@ -462,14 +462,20 @@ CERT_CA="$ACME_CERTS_DIR/$PRIMARY_DOMAIN.ca"
 # P7 - 健壮化 reloadcmd，避免 acme 用户触发特权操作
 RELOAD_CMD="true"
 POST_RELOAD_SERVICE=""
-if systemctl is-active -q nginx 2>/dev/null; then
+if systemctl is-active -q xray 2>/dev/null; then
+    POST_RELOAD_SERVICE="xray"
+    RELOAD_CMD="systemctl restart xray"
+    log_info "检测到 xray 服务运行中，将在证书安装后重启"
+elif systemctl is-active -q nginx 2>/dev/null; then
     POST_RELOAD_SERVICE="nginx"
+    RELOAD_CMD="systemctl reload nginx"
     log_info "检测到 nginx 服务运行中，将在证书安装后重载"
 elif systemctl is-active -q openresty 2>/dev/null; then
     POST_RELOAD_SERVICE="openresty"
+    RELOAD_CMD="systemctl reload openresty"
     log_info "检测到 openresty 服务运行中，将在证书安装后重载"
 else
-    log_warn "未检测到 nginx/openresty 服务，跳过自动重载配置"
+    log_warn "未检测到 xray/nginx/openresty 服务，跳过自动重启/重载"
 fi
 
 sudo -u "$ACME_USER" -H "$ACME_SHELL" -c "
