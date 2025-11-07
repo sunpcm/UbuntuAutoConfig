@@ -235,12 +235,13 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=acme
-Group=acme
+User=root
+Group=root
 WorkingDirectory=/var/lib/acme/home
 Environment="HOME=/var/lib/acme/home"
-# P6 - 显式指定 --home 参数
-ExecStart=/var/lib/acme/home/.acme.sh/acme.sh --cron --home /var/lib/acme/home
+# P6 - 显式指定 --home 参数，以 root 运行以便重启服务
+ExecStart=/bin/su - acme -s /bin/bash -c '/var/lib/acme/home/.acme.sh/acme.sh --cron --home /var/lib/acme/home'
+ExecStartPost=/bin/bash -c 'systemctl is-active xray && systemctl restart xray || systemctl is-active nginx && systemctl reload nginx || true'
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=acme-renew
@@ -460,19 +461,16 @@ CERT_CRT="$ACME_CERTS_DIR/$PRIMARY_DOMAIN.crt"
 CERT_CA="$ACME_CERTS_DIR/$PRIMARY_DOMAIN.ca"
 
 # P7 - 健壮化 reloadcmd，避免 acme 用户触发特权操作
-RELOAD_CMD="true"
+RELOAD_CMD="true"  # 占位符，避免 acme 用户执行 systemctl
 POST_RELOAD_SERVICE=""
 if systemctl is-active -q xray 2>/dev/null; then
     POST_RELOAD_SERVICE="xray"
-    RELOAD_CMD="systemctl restart xray"
     log_info "检测到 xray 服务运行中，将在证书安装后重启"
 elif systemctl is-active -q nginx 2>/dev/null; then
     POST_RELOAD_SERVICE="nginx"
-    RELOAD_CMD="systemctl reload nginx"
     log_info "检测到 nginx 服务运行中，将在证书安装后重载"
 elif systemctl is-active -q openresty 2>/dev/null; then
     POST_RELOAD_SERVICE="openresty"
-    RELOAD_CMD="systemctl reload openresty"
     log_info "检测到 openresty 服务运行中，将在证书安装后重载"
 else
     log_warn "未检测到 xray/nginx/openresty 服务，跳过自动重启/重载"
@@ -500,12 +498,27 @@ sudo -u "$ACME_USER" -H "$ACME_SHELL" -c "
 
 log_info "✓ 证书安装成功"
 
+# P8 - 在 root 权限下手动重启/重载服务
 if [[ -n "$POST_RELOAD_SERVICE" ]]; then
-    log_step "重载 $POST_RELOAD_SERVICE 服务..."
-    if systemctl reload "$POST_RELOAD_SERVICE" 2>/dev/null; then
-        log_info "✓ $POST_RELOAD_SERVICE 已成功重载"
-    else
-        log_warn "重载 $POST_RELOAD_SERVICE 失败，请手动运行：systemctl reload $POST_RELOAD_SERVICE"
+    log_step "重启/重载 $POST_RELOAD_SERVICE 服务..."
+    if [[ "$POST_RELOAD_SERVICE" == "xray" ]]; then
+        if systemctl restart xray 2>/dev/null; then
+            log_info "✓ xray 已成功重启"
+        else
+            log_warn "重启 xray 失败，请手动运行：systemctl restart xray"
+        fi
+    elif [[ "$POST_RELOAD_SERVICE" == "nginx" ]]; then
+        if systemctl reload nginx 2>/dev/null; then
+            log_info "✓ nginx 已成功重载"
+        else
+            log_warn "重载 nginx 失败，请手动运行：systemctl reload nginx"
+        fi
+    elif [[ "$POST_RELOAD_SERVICE" == "openresty" ]]; then
+        if systemctl reload openresty 2>/dev/null; then
+            log_info "✓ openresty 已成功重载"
+        else
+            log_warn "重载 openresty 失败，请手动运行：systemctl reload openresty"
+        fi
     fi
 fi
 
