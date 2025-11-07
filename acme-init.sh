@@ -159,7 +159,7 @@ else
     chown "$ACME_USER:$ACME_USER" "$ACME_TEMP_SCRIPT"
     chmod 0755 "$ACME_TEMP_SCRIPT"
     
-    sudo -u "$ACME_USER" -H $ACME_SHELL -c "
+    sudo -u "$ACME_USER" -H "$ACME_SHELL" -c "
         export HOME=$ACME_HOME/home
         cd $ACME_HOME/home
         # 确保加载安全配置
@@ -198,7 +198,7 @@ fi
 
 # P10 - 设置默认 CA 为 Let's Encrypt
 log_info "配置默认 CA 为 Let's Encrypt..."
-sudo -u "$ACME_USER" -H $ACME_SHELL -c "
+sudo -u "$ACME_USER" -H "$ACME_SHELL" -c "
     export HOME=$ACME_HOME/home
     cd $ACME_HOME/home
     if [[ -f $ACME_HOME/.profile ]]; then
@@ -306,6 +306,7 @@ ACME_USER="acme"
 ACME_HOME="/var/lib/acme"
 ACME_CERTS_DIR="$ACME_HOME/certs"
 ACME_CONFIG_DIR="$ACME_HOME/config"
+ACME_SHELL="$(command -v bash 2>/dev/null || echo /bin/bash)"
 WEBROOT="${WEBROOT:-/var/www/html}"
 METHOD="${2:-webroot}"  # 默认 webroot，也可以是 dns 或其他
 
@@ -405,7 +406,7 @@ if [[ "$METHOD" == "webroot" ]]; then
 elif [[ "$METHOD" == "dns" ]]; then
     log_warn "DNS 验证模式需要预先配置 DNS API 密钥"
     log_warn "例如 Cloudflare: export CF_Token='xxx' CF_Account_ID='yyy'"
-    log_warn "建议将密钥存储在 /etc/acme/dns-config 文件中 (root:root 600)"
+    log_warn "建议将密钥存储在 /etc/acme/dns-config 文件中 (root:ssl-cert 640)"
     ACME_CMD="$ACME_CMD --dns dns_cf"  # 默认 Cloudflare，可自定义
 fi
 
@@ -471,7 +472,7 @@ else
     log_warn "未检测到 nginx/openresty 服务，跳过自动重载配置"
 fi
 
-sudo -u "$ACME_USER" bash -c "
+sudo -u "$ACME_USER" -H "$ACME_SHELL" -c "
     export HOME=$ACME_HOME/home
     cd $ACME_HOME/home
     if [[ -f $ACME_HOME/.profile ]]; then
@@ -586,6 +587,7 @@ set -euo pipefail
 
 ACME_USER="acme"
 ACME_HOME="/var/lib/acme"
+ACME_SHELL="$(command -v bash 2>/dev/null || echo /bin/bash)"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -619,7 +621,7 @@ if [[ $# -gt 0 ]]; then
     echo -e "${YELLOW}查询域名: $DOMAIN${NC}"
     echo ""
     
-    sudo -u "$ACME_USER" -H $ACME_SHELL -c "
+    sudo -u "$ACME_USER" -H "$ACME_SHELL" -c "
         export HOME=$ACME_HOME/home
         cd $ACME_HOME/home
         if [[ -f $ACME_HOME/.profile ]]; then
@@ -632,7 +634,7 @@ else
     echo -e "${YELLOW}所有已安装的证书:${NC}"
     echo ""
     
-    sudo -u "$ACME_USER" -H $ACME_SHELL -c "
+    sudo -u "$ACME_USER" -H "$ACME_SHELL" -c "
         export HOME=$ACME_HOME/home
         cd $ACME_HOME/home
         if [[ -f $ACME_HOME/.profile ]]; then
@@ -679,6 +681,7 @@ ACME_USER="acme"
 ACME_HOME="/var/lib/acme"
 ACME_CERTS_DIR="$ACME_HOME/certs"
 ACME_CONFIG_DIR="$ACME_HOME/config"
+ACME_SHELL="$(command -v bash 2>/dev/null || echo /bin/bash)"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
