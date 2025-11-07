@@ -459,16 +459,16 @@ CERT_KEY="$ACME_CERTS_DIR/$PRIMARY_DOMAIN.key"
 CERT_CRT="$ACME_CERTS_DIR/$PRIMARY_DOMAIN.crt"
 CERT_CA="$ACME_CERTS_DIR/$PRIMARY_DOMAIN.ca"
 
-# P7 - 健壮化 reloadcmd，防止续期黑洞
-RELOAD_CMD=""
+# P7 - 健壮化 reloadcmd，避免 acme 用户触发特权操作
+RELOAD_CMD="true"
+POST_RELOAD_SERVICE=""
 if systemctl is-active -q nginx 2>/dev/null; then
-    RELOAD_CMD="systemctl reload nginx || true"
-    log_info "检测到 nginx 服务运行中，将配置自动重载"
+    POST_RELOAD_SERVICE="nginx"
+    log_info "检测到 nginx 服务运行中，将在证书安装后重载"
 elif systemctl is-active -q openresty 2>/dev/null; then
-    RELOAD_CMD="systemctl reload openresty || true"
-    log_info "检测到 openresty 服务运行中，将配置自动重载"
+    POST_RELOAD_SERVICE="openresty"
+    log_info "检测到 openresty 服务运行中，将在证书安装后重载"
 else
-    RELOAD_CMD="true"
     log_warn "未检测到 nginx/openresty 服务，跳过自动重载配置"
 fi
 
@@ -493,6 +493,15 @@ sudo -u "$ACME_USER" -H "$ACME_SHELL" -c "
 }
 
 log_info "✓ 证书安装成功"
+
+if [[ -n "$POST_RELOAD_SERVICE" ]]; then
+    log_step "重载 $POST_RELOAD_SERVICE 服务..."
+    if systemctl reload "$POST_RELOAD_SERVICE" 2>/dev/null; then
+        log_info "✓ $POST_RELOAD_SERVICE 已成功重载"
+    else
+        log_warn "重载 $POST_RELOAD_SERVICE 失败，请手动运行：systemctl reload $POST_RELOAD_SERVICE"
+    fi
+fi
 
 # ============================================================================
 # 第四步：调整权限

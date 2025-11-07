@@ -9,8 +9,8 @@
   vars:
     # 这个用户名是你要为之配置 Zsh、Homebrew 的用户
     # 它通常和你的 ansible_user (SSH登录用户) 是同一个
-    target_user: "your_username"
-    target_port: 6626
+    target_user: "{{ ansible_new_user }}"
+    target_port: "{{ ansible_new_port }}"
     # 注意：如果服务器只有 root 用户，请在 host.ini 中设置 ansible_user=root
     # playbook 会自动创建 target_user 并配置相关权限 
 
