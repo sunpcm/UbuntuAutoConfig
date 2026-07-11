@@ -34,7 +34,9 @@
     mode: "0644"
   notify: Validate and restart SSH
 
-- name: Detect whether OpenSSH is socket-activated
+# 只读查询，且需容忍单元不存在（failed_when: false），systemd 模块在缺单元时会报错，
+# 因此这里刻意用 command 探测 socket 激活状态。
+- name: Detect whether OpenSSH is socket-activated  # noqa: command-instead-of-module
   become: true
   ansible.builtin.command: systemctl is-active ssh.socket
   register: ssh_socket_state
