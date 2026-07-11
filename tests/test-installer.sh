@@ -304,7 +304,18 @@ fi
   ensure_dependencies
 )
 grep -Fx 'update' "${APT_LOG}" >/dev/null
-grep -Fx 'install -y ansible python3 git curl ca-certificates openssl sshpass' "${APT_LOG}" >/dev/null
+grep -Fx 'install -y ansible python3 python3-pip git curl ca-certificates openssl sshpass' "${APT_LOG}" >/dev/null
+
+# apt 的 ansible 版本过低时，系统模式改用 pip 安装 ansible-core。
+PIP_LOG="${TMP_DIR}/pip.log"
+(
+  source "${ROOT_DIR}/install.sh"
+  # 起始不达标；模拟 pip 安装后达标。
+  ansible_core_meets_requirement() { [[ -e "${TMP_DIR}/pip-done" ]]; }
+  pip_install_ansible_core() { echo called >>"${PIP_LOG}"; : >"${TMP_DIR}/pip-done"; }
+  ensure_ansible_core
+)
+[[ -s "${PIP_LOG}" ]] || fail "ansible-core 版本过低时未触发 pip 安装"
 
 "${ROOT_DIR}/install.sh" --help >/dev/null
 echo "安装器测试通过。"

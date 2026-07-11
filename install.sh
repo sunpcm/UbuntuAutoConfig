@@ -8,6 +8,9 @@ readonly BUNDLE_NAME="${ARCHIVE_NAME}.sigstore.json"
 readonly COSIGN_VERSION="v3.1.1"
 readonly REQUIRED_ANSIBLE_MAJOR=2
 readonly REQUIRED_ANSIBLE_MINOR=12
+# 用范围而非精确版本：让 pip 按运行时 Python 解析可用的最高 ansible-core
+# （Ubuntu 22.04 的 Python 3.10 最高 2.17，24.04 的 3.12 可到 2.18）。
+readonly ANSIBLE_CORE_PIP_SPEC="ansible-core>=2.12,<2.19"
 
 INSTALL_MODE=""
 REQUESTED_VERSION="${DEVOPS_TOOLKIT_VERSION:-}"
@@ -116,19 +119,44 @@ apt_get_available() {
   command -v apt-get >/dev/null 2>&1
 }
 
+pip_install_ansible_core() {
+  local -a pip_cmd=(python3 -m pip install --upgrade "${ANSIBLE_CORE_PIP_SPEC}")
+  # PEP 668：externally-managed 环境（如 Ubuntu 24.04）需显式放行系统级安装。
+  if python3 -c 'import os, sysconfig, sys; sys.exit(0 if os.path.exists(os.path.join(sysconfig.get_path("stdlib"), "EXTERNALLY-MANAGED")) else 1)'; then
+    pip_cmd+=(--break-system-packages)
+  fi
+  "${pip_cmd[@]}"
+}
+
+ensure_ansible_core() {
+  # 部分发行版（如 Ubuntu 22.04）apt 的 ansible 仅 2.10，低于要求；改用 pip 安装 ansible-core。
+  if ansible_core_meets_requirement; then
+    return 0
+  fi
+  command -v python3 >/dev/null 2>&1 || fail "缺少 python3，无法通过 pip 安装 ansible-core。"
+  info "apt 的 ansible 版本过低或缺失，改用 pip 安装 ${ANSIBLE_CORE_PIP_SPEC}"
+  pip_install_ansible_core || fail "pip 安装 ansible-core 失败。"
+  hash -r
+  ansible_core_meets_requirement || \
+    fail "pip 安装后仍未获得满足要求的 ansible-core（可能 PATH 未优先 /usr/local/bin）。"
+}
+
 install_system_dependencies() {
   apt_get_available || \
     fail "系统模式只能在支持 apt-get 的 Ubuntu/WSL 自动安装依赖。"
   info "安装系统依赖"
   run_apt_get update
   DEBIAN_FRONTEND=noninteractive run_apt_get install -y \
-    ansible python3 git curl ca-certificates openssl sshpass
+    ansible python3 python3-pip git curl ca-certificates openssl sshpass
+  ensure_ansible_core
 }
 
 ensure_dependencies() {
   local missing
   missing="$(missing_core_commands)"
-  if [[ -n "${missing}" && "${INSTALL_MODE}" == "system" ]]; then
+  # 命令齐全但 ansible-core 版本过低时（如 Ubuntu 22.04 的 2.10）也需在系统模式下修复。
+  if [[ "${INSTALL_MODE}" == "system" ]] && \
+     { [[ -n "${missing}" ]] || ! ansible_core_meets_requirement; }; then
     install_system_dependencies
     missing="$(missing_core_commands)"
   fi
@@ -144,15 +172,29 @@ ensure_dependencies() {
   fi
 }
 
-check_ansible_version() {
+ansible_core_version() {
+  command -v ansible-playbook >/dev/null 2>&1 || return 1
+  # 兼容两种版本串：新版 "ansible-playbook [core 2.18.6]" 与旧版 "ansible-playbook 2.10.7"。
+  ansible-playbook --version 2>/dev/null | \
+    sed -nE '1s/.*(core |ansible-playbook )([0-9]+)\.([0-9]+).*/\2.\3/p'
+}
+
+ansible_core_meets_requirement() {
   local version major minor
-  version="$(ansible-playbook --version | sed -nE '1s/.*\[core ([0-9]+)\.([0-9]+).*/\1.\2/p')"
-  [[ -n "${version}" ]] || fail "无法识别 ansible-core 版本。"
+  version="$(ansible_core_version)" || return 1
+  [[ -n "${version}" ]] || return 1
   major="${version%%.*}"
   minor="${version##*.}"
-  if (( major < REQUIRED_ANSIBLE_MAJOR || (major == REQUIRED_ANSIBLE_MAJOR && minor < REQUIRED_ANSIBLE_MINOR) )); then
-    fail "需要 ansible-core >= ${REQUIRED_ANSIBLE_MAJOR}.${REQUIRED_ANSIBLE_MINOR}，当前为 ${version}。"
-  fi
+  (( major > REQUIRED_ANSIBLE_MAJOR || \
+     (major == REQUIRED_ANSIBLE_MAJOR && minor >= REQUIRED_ANSIBLE_MINOR) ))
+}
+
+check_ansible_version() {
+  ansible_core_meets_requirement && return 0
+  local version
+  version="$(ansible_core_version || true)"
+  [[ -n "${version}" ]] || fail "无法识别 ansible-core 版本。"
+  fail "需要 ansible-core >= ${REQUIRED_ANSIBLE_MAJOR}.${REQUIRED_ANSIBLE_MINOR}，当前为 ${version}。"
 }
 
 download_base_url() {
