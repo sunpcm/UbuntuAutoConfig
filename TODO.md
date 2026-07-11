@@ -20,10 +20,13 @@
       ansible/bin/scripts/tests，AcmeConfig/wsl-dev 的问题会漏检）。
 - [x] 修复全仓 ShellCheck：删无引用的 `wsl-dev/scripts/*`，修 `wsl-dev/bootstrap.sh`、
       `AcmeConfig/*` 的 SC2269/SC2034/SC2064。
-- [ ] **修复 Ansible Lint 历史欠债（问题 B）**：CI 首次真正运行 ansible-lint 25.1.3 后暴露一批
-      预存告警——`yaml[document-start]`（`.yamllint.yml` 把 `document-start` 设成 `present: false`
-      与全仓 `---` 相悖）、行超长（docker/tasks:4）、playbook 找不到 role（roles 路径未配）。
-      这些不挡 release，但让 main 的 Validate 徽章一直红。
+- [x] **修复 Ansible Lint 历史欠债（问题 B）**：`.yamllint.yml` 的 `document-start` 由
+      `present: false` 改为 `present: true`（与全仓 `---` 一致，消除 32 处）；根 `ansible.cfg`
+      加 `roles_path = ansible/roles`，让从仓库根运行的 ansible-lint 解析短角色名；`.ansible-lint`
+      将 `var-naming[no-role-prefix]`（profile_* 跨角色参数与 ansible_port 内置变量属有意为之）
+      加入 skip_list、`yaml[line-length]`（作者已设为 warning 级）加入 warn_list；两个 workflow
+      补 `---`。本地带 collections 复跑 ansible-lint 通过（0 failure，3 line-length 警告），
+      yamllint/shellcheck/verify-ansible 均绿。
 
 ## P1：Multipass 真实环境测试
 

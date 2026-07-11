@@ -4,3 +4,12 @@ exclude_paths:
   - archive/
   - ansible/secrets.yml
 mock_roles: []
+
+# 本项目刻意用 profile_* 等跨角色参数由调用方 playbook 传入，并使用 ansible_port 内置变量，
+# 不遵循 role 名前缀约定。
+skip_list:
+  - var-naming[no-role-prefix]
+
+# 行长在 .yamllint.yml 里被作者设为 warning 级软限制；这里同样只警告，不作为失败。
+warn_list:
+  - yaml[line-length]
