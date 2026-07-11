@@ -46,6 +46,9 @@ python3 -c 'import runpy, stat, sys; from pathlib import Path; m=runpy.run_path(
 python3 "${ROOT_DIR}/tests/test-wizard.py"
 "${ROOT_DIR}/bin/devops-toolkit" --help >/dev/null
 [[ "$("${ROOT_DIR}/bin/devops-toolkit" --version)" == "development" ]]
+# 主推入口是 bash -c "$(curl ... install.sh)"，此时 BASH_SOURCE 为空；
+# 确保 set -u 下仍能运行 main（--help 在任何安装动作前退出）。
+bash -c "$(cat "${ROOT_DIR}/install.sh")" install-sh-entrypoint --help >/dev/null
 "${ROOT_DIR}/tests/test-installer.sh"
 "${ROOT_DIR}/tests/test-release.sh"
 

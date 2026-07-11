@@ -452,6 +452,8 @@ main() {
   fi
 }
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+# 通过 `bash -c "$(curl ... install.sh)"` 运行时 BASH_SOURCE 为空，set -u 会因未绑定变量报错。
+# 用 ${BASH_SOURCE[0]:-$0} 兜底：直接执行或管道执行都运行 main，仅在被 source 时不运行。
+if [[ "${BASH_SOURCE[0]:-$0}" == "$0" ]]; then
   main "$@"
 fi
