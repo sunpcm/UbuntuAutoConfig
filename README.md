@@ -166,6 +166,7 @@ vim ansible/inventories/user-only.ini
 ## 文档
 
 - [安装、升级与回滚](docs/INSTALLATION.md)
+- [发布流程](docs/RELEASING.md)
 - [发布供应链安全与 GitHub 加固](docs/SUPPLY_CHAIN_SECURITY.md)
 - [三个场景完整使用指南](docs/GETTING_STARTED.md)
 - [交互式向导说明](docs/INTERACTIVE.md)

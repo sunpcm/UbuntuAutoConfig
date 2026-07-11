@@ -16,6 +16,14 @@
 - [x] 将 uv 安装改为固定版本产物下载并校验 SHA256，移除 `curl | sh`。
 - [x] 在 CI 中强制运行 ShellCheck、Ansible Lint、YAML Lint、Ruff、Actionlint 和 secrets scan。
 - [x] 让 UFW 规则具备声明式收敛能力：只清理 DevOpsToolkit 托管且已从配置删除的规则，不影响人工规则。
+- [x] env-check 去掉 push 路径过滤，让 quality 作业对全仓 shell/yaml 生效（原过滤只覆盖
+      ansible/bin/scripts/tests，AcmeConfig/wsl-dev 的问题会漏检）。
+- [x] 修复全仓 ShellCheck：删无引用的 `wsl-dev/scripts/*`，修 `wsl-dev/bootstrap.sh`、
+      `AcmeConfig/*` 的 SC2269/SC2034/SC2064。
+- [ ] **修复 Ansible Lint 历史欠债（问题 B）**：CI 首次真正运行 ansible-lint 25.1.3 后暴露一批
+      预存告警——`yaml[document-start]`（`.yamllint.yml` 把 `document-start` 设成 `present: false`
+      与全仓 `---` 相悖）、行超长（docker/tasks:4）、playbook 找不到 role（roles 路径未配）。
+      这些不挡 release，但让 main 的 Validate 徽章一直红。
 
 ## P1：Multipass 真实环境测试
 
@@ -47,6 +55,12 @@
 
 ## P2：发布与维护
 
+> 2026-07-11 首个可用 Release：`v0.1.2`（含 tar.gz + sha256 + sigstore 三资产，
+> `releases/latest/download` 可达）。教训：**不要在网页手动创建 Release**——`release.yml`
+> 自建 Release，手动先建会让 `gh release create` 撞 `already exists`、资产不上传（v0.1.0/v0.1.1
+> 即因此为空，已删除）。发布步骤见 [发布流程](docs/RELEASING.md)。
+
+- [x] 记录发布流程与"禁止手动建 Release"约束（docs/RELEASING.md，README 已链接）。
 - [ ] 建立固定版本与校验和的升级流程，并记录升级验证结果。
 - [ ] 在真实 VM 验证完成后删除兼容实现，更新 README、配置文档和 Release 包内容。
 - [ ] 补充故障注入测试：SSH 配置无效、UFW 规则冲突、下载校验失败和重复执行中断恢复。
