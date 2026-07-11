@@ -292,7 +292,14 @@ cosign_expected_sha256() {
 }
 
 cosign_download_base() {
-  printf 'https://github.com/sigstore/cosign/releases/download/%s\n' "${COSIGN_VERSION}"
+  # DEVOPS_TOOLKIT_COSIGN_BASE 允许墙内用户把 cosign 二进制指向可达镜像；
+  # SHA256 仍会强校验，镜像不影响安全性。基址需包含到版本目录，形如
+  # https://<mirror>/https://github.com/sigstore/cosign/releases/download/vX.Y.Z
+  if [[ -n "${DEVOPS_TOOLKIT_COSIGN_BASE:-}" ]]; then
+    printf '%s\n' "${DEVOPS_TOOLKIT_COSIGN_BASE%/}"
+  else
+    printf 'https://github.com/sigstore/cosign/releases/download/%s\n' "${COSIGN_VERSION}"
+  fi
 }
 
 prepare_cosign() {
