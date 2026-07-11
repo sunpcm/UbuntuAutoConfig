@@ -38,7 +38,7 @@ goenv_version: "3.1.4"
 
 # Immutable revisions keep repeated runs reproducible. Update them deliberately.
 ohmyzsh_version: c954bbb168fc645592c50017de0d0e138db8df5f
-zsh_theme: agnoster
+zsh_theme: robbyrussell   # agnoster
 zsh_plugins:
   - git
   - zsh-autosuggestions
