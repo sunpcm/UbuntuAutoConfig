@@ -53,10 +53,17 @@ git_user_email: "you@example.com"
 git_editor: nvim
 ```
 
-工具版本均集中配置并按实际版本校验：
+工具版本均集中配置并按实际版本校验。uv 不执行远程安装脚本，而是按 CPU 架构下载固定版本的官方发布包，先校验仓库内固定的 SHA256，再复制 `uv`/`uvx`：
 
 ```yaml
 uv_version: "0.9.18"
+uv_artifacts:
+  x86_64:
+    archive: uv-x86_64-unknown-linux-gnu.tar.gz
+    sha256: c2def3db178ade63933fa15ffc96e882c196ce53e06173dcee05b36c5f6f68f5
+  aarch64:
+    archive: uv-aarch64-unknown-linux-gnu.tar.gz
+    sha256: f8e23ec786b18660ade6b033b6191b7e9c283c872eeb8c4531d56a873decf160
 nvm_version: bab86d5de571015b63fd8fc30b47bbe072a1290e
 node_version: "24.11.1"
 goenv_version: "3.1.4"
@@ -84,10 +91,12 @@ Oh My Zsh、插件和 Linuxbrew 固定到不可变 Git commit。升级时应修�
 
 ```yaml
 firewall_allowed_ports:
-  - { port: "{{ ssh_port }}", proto: tcp, comment: SSH }
-  - { port: "80", proto: tcp, comment: HTTP }
-  - { port: "443", proto: tcp, comment: HTTPS }
+  - { port: "{{ ssh_port }}", proto: tcp }
+  - { port: "80", proto: tcp }
+  - { port: "443", proto: tcp }
 ```
+
+这些端口统一写入名为 `DevOpsToolkit` 的 UFW application profile。配置删除端口后，`ufw app update DevOpsToolkit` 只收敛该 profile 关联的规则，不删除或改写管理员手工创建的其他 UFW 规则。不要把人工规则也命名为 `DevOpsToolkit`。
 
 ## 使用 Vault 保存敏感变量
 

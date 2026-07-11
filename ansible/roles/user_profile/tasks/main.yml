@@ -181,17 +181,79 @@
   failed_when: false
   when: configure_uv | bool
 
-- name: Install uv in the target HOME
-  become: "{{ profile_use_become }}"
-  become_user: "{{ profile_target_user }}"
-  ansible.builtin.shell: "curl -LsSf {{ uv_install_url | quote }} | sh"
-  args:
-    executable: /bin/sh
-  environment:
-    HOME: "{{ profile_target_home }}"
+- name: Validate the uv release artifact for this architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture in uv_artifacts
+      - uv_artifacts[ansible_architecture].archive | length > 0
+      - uv_artifacts[ansible_architecture].sha256 is match('^[0-9a-f]{64}$')
+    fail_msg: >-
+      uv {{ uv_version }} has no pinned, checksummed artifact for
+      {{ ansible_architecture }}. Add it to uv_artifacts before continuing.
   when:
     - configure_uv | bool
     - user_uv.rc != 0 or not user_uv.stdout.startswith('uv ' ~ uv_version ~ ' ')
+
+- name: Install the pinned uv release artifact in the target HOME
+  when:
+    - configure_uv | bool
+    - user_uv.rc != 0 or not user_uv.stdout.startswith('uv ' ~ uv_version ~ ' ')
+  block:
+    - name: Create a temporary uv extraction directory
+      become: "{{ profile_use_become }}"
+      become_user: "{{ profile_target_user }}"
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: devops-toolkit-uv-
+      register: uv_temp_dir
+
+    - name: Download the pinned uv release archive
+      become: "{{ profile_use_become }}"
+      become_user: "{{ profile_target_user }}"
+      ansible.builtin.get_url:
+        url: >-
+          {{ uv_release_base_url }}/{{ uv_artifacts[ansible_architecture].archive }}
+        dest: "{{ uv_temp_dir.path }}/uv.tar.gz"
+        checksum: "sha256:{{ uv_artifacts[ansible_architecture].sha256 }}"
+        mode: "0600"
+
+    - name: Extract the verified uv release archive
+      become: "{{ profile_use_become }}"
+      become_user: "{{ profile_target_user }}"
+      ansible.builtin.unarchive:
+        src: "{{ uv_temp_dir.path }}/uv.tar.gz"
+        dest: "{{ uv_temp_dir.path }}"
+        remote_src: true
+
+    - name: Ensure the target local binary directory exists
+      become: "{{ profile_use_become }}"
+      become_user: "{{ profile_target_user }}"
+      ansible.builtin.file:
+        path: "{{ profile_target_home }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    - name: Install verified uv binaries
+      become: "{{ profile_use_become }}"
+      become_user: "{{ profile_target_user }}"
+      ansible.builtin.copy:
+        src: >-
+          {{ uv_temp_dir.path }}/{{ uv_artifacts[ansible_architecture].archive
+          | regex_replace('\\.tar\\.gz$', '') }}/{{ item }}
+        dest: "{{ profile_target_home }}/.local/bin/{{ item }}"
+        remote_src: true
+        mode: "0755"
+      loop:
+        - uv
+        - uvx
+  always:
+    - name: Remove the temporary uv extraction directory
+      become: "{{ profile_use_become }}"
+      become_user: "{{ profile_target_user }}"
+      ansible.builtin.file:
+        path: "{{ uv_temp_dir.path }}"
+        state: absent
+      when: uv_temp_dir is defined and uv_temp_dir.path is defined
 
 - name: Check the installed NVM revision
   become: "{{ profile_use_become }}"

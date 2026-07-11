@@ -48,6 +48,11 @@ python3 "${ROOT_DIR}/tests/test-wizard.py"
 "${ROOT_DIR}/tests/test-installer.sh"
 "${ROOT_DIR}/tests/test-release.sh"
 
+if [[ "${REQUIRE_QUALITY_TOOLS:-0}" == "1" ]] && ! command -v shellcheck >/dev/null 2>&1; then
+  echo "错误：REQUIRE_QUALITY_TOOLS=1，但 shellcheck 不可用。" >&2
+  exit 1
+fi
+
 if command -v shellcheck >/dev/null 2>&1; then
   shellcheck \
     "${ROOT_DIR}/install.sh" \
@@ -58,6 +63,23 @@ fi
 
 if grep -R -nE 'apt_key:|apt_repository:' "${ROOT_DIR}/ansible"; then
   echo "错误：统一实现中仍有已弃用的 APT 仓库模块。" >&2
+  exit 1
+fi
+
+if grep -R -nE 'curl[^|]*\|[[:space:]]*(sh|bash)' "${ROOT_DIR}/ansible"; then
+  echo "错误：Ansible 实现中仍在执行 curl pipe shell。" >&2
+  exit 1
+fi
+
+if ! grep -Eq 'checksum:[[:space:]]+"sha256:' \
+  "${ROOT_DIR}/ansible/roles/user_profile/tasks/main.yml"; then
+  echo "错误：uv 下载没有强制 SHA256 校验。" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'name: "{{ firewall_managed_profile_name }}"' \
+  "${ROOT_DIR}/ansible/roles/firewall/tasks/main.yml"; then
+  echo "错误：UFW 规则没有通过 DevOpsToolkit 托管 profile 收敛。" >&2
   exit 1
 fi
 

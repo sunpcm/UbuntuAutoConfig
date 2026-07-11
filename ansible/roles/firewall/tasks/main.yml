@@ -5,14 +5,32 @@
     name: ufw
     state: present
 
-- name: Allow declared inbound ports before enabling the firewall
+- name: Validate managed firewall ports
+  ansible.builtin.assert:
+    that:
+      - item.port | string is match('^[0-9]+$')
+      - item.port | int >= 1
+      - item.port | int <= 65535
+      - item.proto in ['tcp', 'udp']
+    fail_msg: "Invalid managed firewall rule: {{ item }}"
+  loop: "{{ firewall_allowed_ports }}"
+
+- name: Publish the DevOpsToolkit-owned UFW application profile
+  become: true
+  ansible.builtin.template:
+    src: devops-toolkit.j2
+    dest: "/etc/ufw/applications.d/{{ firewall_managed_profile_name | lower }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reconcile DevOpsToolkit UFW application rules
+
+- name: Allow the managed application profile before enabling the firewall
   become: true
   community.general.ufw:
     rule: allow
-    port: "{{ item.port }}"
-    proto: "{{ item.proto }}"
-    comment: "{{ item.comment | default(omit) }}"
-  loop: "{{ firewall_allowed_ports }}"
+    name: "{{ firewall_managed_profile_name }}"
+    comment: Managed by DevOpsToolkit
 
 - name: Apply default firewall policies
   become: true

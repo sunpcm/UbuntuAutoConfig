@@ -1,0 +1,6 @@
+---
+profile: basic
+exclude_paths:
+  - archive/
+  - ansible/secrets.yml
+mock_roles: []

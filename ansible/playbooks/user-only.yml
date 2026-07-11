@@ -31,14 +31,12 @@
         user_only_required_commands: >-
           {{
             (['git'] if ((configure_git | bool) or (configure_shell | bool) or (configure_node | bool) or (configure_go | bool)) else []) +
-            (['curl'] if ((configure_uv | bool) or (configure_node | bool) or (configure_go | bool)) else []) +
             (['zsh'] if (configure_shell | bool) else []) +
             (['cc', 'make'] if (configure_go | bool) else [])
           }}
         user_only_dependency_allowlist: >-
           {{
             (['git'] if ((configure_git | bool) or (configure_shell | bool) or (configure_node | bool) or (configure_go | bool)) else []) +
-            (['curl'] if ((configure_uv | bool) or (configure_node | bool) or (configure_go | bool)) else []) +
             (['zsh'] if (configure_shell | bool) else []) +
             (['build-essential'] if (configure_go | bool) else [])
           }}

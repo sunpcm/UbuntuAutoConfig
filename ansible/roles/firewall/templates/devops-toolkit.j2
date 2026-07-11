@@ -1,0 +1,4 @@
+[{{ firewall_managed_profile_name }}]
+title=DevOpsToolkit managed inbound ports
+description=Rules owned and reconciled by DevOpsToolkit; manual UFW rules are untouched
+ports={% for rule in firewall_allowed_ports %}{{ rule.port }}/{{ rule.proto }}{% if not loop.last %}|{% endif %}{% endfor %}

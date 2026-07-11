@@ -26,7 +26,14 @@ nvm_version: bab86d5de571015b63fd8fc30b47bbe072a1290e
 node_version: "24.11.1"
 go_version: "1.22.1"
 uv_version: "0.9.18"
-uv_install_url: "https://astral.sh/uv/{{ uv_version }}/install.sh"
+uv_artifacts:
+  x86_64:
+    archive: uv-x86_64-unknown-linux-gnu.tar.gz
+    sha256: c2def3db178ade63933fa15ffc96e882c196ce53e06173dcee05b36c5f6f68f5
+  aarch64:
+    archive: uv-aarch64-unknown-linux-gnu.tar.gz
+    sha256: f8e23ec786b18660ade6b033b6191b7e9c283c872eeb8c4531d56a873decf160
+uv_release_base_url: "https://github.com/astral-sh/uv/releases/download/{{ uv_version }}"
 goenv_version: "3.1.4"
 
 # Immutable revisions keep repeated runs reproducible. Update them deliberately.
@@ -84,8 +91,9 @@ linuxbrew_packages:
 install_docker: false
 install_nginx: false
 enable_firewall: true
+firewall_managed_profile_name: DevOpsToolkit
 firewall_allowed_ports:
-  - { port: "{{ ssh_port }}", proto: tcp, comment: SSH }
+  - { port: "{{ ssh_port }}", proto: tcp }
 
 # SSH changes are deliberately conservative by default.
 configure_ssh: true

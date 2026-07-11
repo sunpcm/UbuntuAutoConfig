@@ -1,0 +1,10 @@
+---
+- name: Reconcile DevOpsToolkit UFW application rules
+  become: true
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - app
+      - update
+      - "{{ firewall_managed_profile_name }}"
+  changed_when: true

@@ -13,9 +13,9 @@
 
 ## P1：安全与质量门禁
 
-- [ ] 将 uv 安装改为固定版本产物下载并校验 SHA256，移除 `curl | sh`。
-- [ ] 在 CI 中强制运行 ShellCheck、Ansible Lint、YAML Lint、Ruff、Actionlint 和 secrets scan。
-- [ ] 让 UFW 规则具备声明式收敛能力：只清理 DevOpsToolkit 托管且已从配置删除的规则，不影响人工规则。
+- [x] 将 uv 安装改为固定版本产物下载并校验 SHA256，移除 `curl | sh`。
+- [x] 在 CI 中强制运行 ShellCheck、Ansible Lint、YAML Lint、Ruff、Actionlint 和 secrets scan。
+- [x] 让 UFW 规则具备声明式收敛能力：只清理 DevOpsToolkit 托管且已从配置删除的规则，不影响人工规则。
 
 ## P1：Multipass 真实环境测试
 
