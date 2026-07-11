@@ -1,14 +1,9 @@
 name: Validate
 
 on:
+  # quality 作业会扫描整个仓库（全部 *.sh、yamllint .），因此不做 push 路径过滤，
+  # 否则 AcmeConfig/wsl-dev/ubuntu-server 等目录的 shell/yaml 问题会漏过 CI。
   push:
-    paths:
-      - "ansible/**"
-      - "bin/**"
-      - "scripts/**"
-      - "tests/**"
-      - "install.sh"
-      - ".github/workflows/**"
   pull_request:
 
 jobs:
