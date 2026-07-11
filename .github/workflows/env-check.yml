@@ -30,6 +30,8 @@ jobs:
             ruff==0.9.10
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
           go install github.com/zricethezav/gitleaks/v8@v8.24.3
+          # go install 落在 GOPATH/bin，需加入后续步骤的 PATH，否则 actionlint/gitleaks 找不到。
+          echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
           ansible-galaxy collection install -r ansible/requirements.yml
 
       - name: ShellCheck
