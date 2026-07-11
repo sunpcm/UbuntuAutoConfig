@@ -5,6 +5,8 @@ ignore: |
   archive/
 
 rules:
+  braces:
+    max-spaces-inside: 1
   comments:
     min-spaces-from-content: 1
   document-start:
