@@ -1,12 +1,23 @@
 ---
-- name: Validate and restart SSH
+- name: Validate SSH before restart
   become: true
   ansible.builtin.command: /usr/sbin/sshd -t
   changed_when: false
-  notify: Restart SSH
+  listen: Validate and restart SSH
 
-- name: Restart SSH
+- name: Restart the socket-activated SSH listener
+  become: true
+  ansible.builtin.systemd:
+    name: ssh.socket
+    state: restarted
+    daemon_reload: true
+  when: ssh_socket_active | default(false) | bool
+  listen: Validate and restart SSH
+
+- name: Restart the traditional SSH service
   become: true
   ansible.builtin.service:
     name: ssh
     state: restarted
+  when: not (ssh_socket_active | default(false) | bool)
+  listen: Validate and restart SSH

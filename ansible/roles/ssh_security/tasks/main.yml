@@ -34,6 +34,38 @@
     mode: "0644"
   notify: Validate and restart SSH
 
+- name: Detect whether OpenSSH is socket-activated
+  become: true
+  ansible.builtin.command: systemctl is-active ssh.socket
+  register: ssh_socket_state
+  changed_when: false
+  failed_when: false
+
+- name: Record whether the SSH listener is owned by ssh.socket
+  ansible.builtin.set_fact:
+    ssh_socket_active: "{{ (ssh_socket_state.stdout | trim) == 'active' }}"
+
+- name: Ensure the ssh.socket override directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/system/ssh.socket.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: ssh_socket_active | bool
+
+- name: Bind the socket-activated SSH listener to the managed port
+  become: true
+  ansible.builtin.template:
+    src: ssh.socket-override.conf.j2
+    dest: /etc/systemd/system/ssh.socket.d/99-devops-toolkit.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: ssh_socket_active | bool
+  notify: Validate and restart SSH
+
 - name: Validate the complete OpenSSH configuration before handlers run
   become: true
   ansible.builtin.command: /usr/sbin/sshd -t
@@ -51,3 +83,11 @@
   delegate_to: localhost
   become: false
   when: ansible_connection | default('ssh') != 'local'
+
+- name: Switch subsequent tasks to the managed SSH port
+  ansible.builtin.set_fact:
+    ansible_port: "{{ ssh_port }}"
+  when: ansible_connection | default('ssh') != 'local'
+
+- name: Reset the SSH connection after a port change
+  ansible.builtin.meta: reset_connection

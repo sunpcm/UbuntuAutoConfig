@@ -83,6 +83,26 @@ if ! grep -Fq 'name: "{{ firewall_managed_profile_name }}"' \
   exit 1
 fi
 
+# 锁定 24.04 改端口修复：Ubuntu 22.10+（含 24.04）的 OpenSSH 监听端口由 ssh.socket 决定，
+# 只改 sshd_config 的 Port 无效。若下列任一环节缺失，socket 激活主机改端口不会生效，叠加
+# UFW 只放行新端口会把主机锁死。
+ssh_security_role="${ROOT_DIR}/ansible/roles/ssh_security"
+if ! grep -Eq 'ListenStream=.*ssh_port' \
+  "${ssh_security_role}/templates/ssh.socket-override.conf.j2" 2>/dev/null; then
+  echo "错误：ssh_security 未通过 ssh.socket 的 ListenStream 绑定托管端口；socket 激活的 Ubuntu 改 SSH 端口会失效并可能锁死主机。" >&2
+  exit 1
+fi
+if ! grep -Fq 'ssh.socket-override.conf.j2' \
+  "${ssh_security_role}/tasks/main.yml" 2>/dev/null; then
+  echo "错误：ssh_security 的任务未写入 ssh.socket 端口覆盖文件。" >&2
+  exit 1
+fi
+if ! grep -Eq 'name:[[:space:]]*ssh\.socket' \
+  "${ssh_security_role}/handlers/main.yml" 2>/dev/null; then
+  echo "错误：ssh_security 的 handler 未重启 ssh.socket，端口变更不会生效。" >&2
+  exit 1
+fi
+
 if grep -R -nE 'version:[[:space:]]*(master|main)$' \
   "${ROOT_DIR}/ansible/roles"; then
   echo "错误：统一实现中仍有跟随上游分支的 Git 安装。" >&2

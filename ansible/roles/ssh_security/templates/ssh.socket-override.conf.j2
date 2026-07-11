@@ -1,0 +1,7 @@
+# Managed by DevOpsToolkit
+# On socket-activated OpenSSH (Ubuntu 22.10+, including 24.04 LTS) the listening
+# port is owned by ssh.socket, not by "Port" in sshd_config. Clear the inherited
+# ListenStream and bind the managed port here.
+[Socket]
+ListenStream=
+ListenStream={{ ssh_port }}
