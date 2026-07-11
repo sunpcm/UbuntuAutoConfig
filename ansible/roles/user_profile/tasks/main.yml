@@ -216,6 +216,11 @@
         dest: "{{ uv_temp_dir.path }}/uv.tar.gz"
         checksum: "sha256:{{ uv_artifacts[ansible_architecture].sha256 }}"
         mode: "0600"
+        timeout: 60
+      register: uv_archive_download
+      retries: 3
+      delay: 5
+      until: uv_archive_download is succeeded
 
     - name: Extract the verified uv release archive
       become: "{{ profile_use_become }}"

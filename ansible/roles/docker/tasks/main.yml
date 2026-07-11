@@ -29,7 +29,11 @@
     owner: root
     group: root
     mode: "0644"
+    timeout: 30
   register: docker_repository_key
+  retries: 5
+  delay: 10
+  until: docker_repository_key is succeeded
 
 - name: Configure the Docker deb822 source
   become: true
