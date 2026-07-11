@@ -170,6 +170,7 @@ vim ansible/inventories/user-only.ini
 - [三个场景完整使用指南](docs/GETTING_STARTED.md)
 - [交互式向导说明](docs/INTERACTIVE.md)
 - [配置、安全与故障排查](docs/CONFIGURATION.md)
+- [Multipass 真实环境测试](docs/MULTIPASS_TESTING.md)
 - [ACME 证书管理](AcmeConfig/README.md)
 - [历史文档](archive/README.md)
 
@@ -180,6 +181,9 @@ vim ansible/inventories/user-only.ini
 ```
 
 该检查覆盖新旧入口的 Bash 语法、全部 Playbook 的 Ansible 语法、安装器失败边界、Release 包内容、Sigstore 身份参数、Action 固定引用，以及全局提权、主机指纹和弃用模块检查。
+
+Ubuntu 22.04/24.04 系统级验证使用严格命名的一次性实例，详见
+[Multipass 真实环境测试](docs/MULTIPASS_TESTING.md)。不要在长期保留的 Multipass 实例上测试 SSH 端口切换。
 
 ## 兼容入口
 

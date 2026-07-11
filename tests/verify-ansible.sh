@@ -35,6 +35,7 @@ bash -n \
   "${ROOT_DIR}/tests/test-installer.sh" \
   "${ROOT_DIR}/tests/test-release.sh" \
   "${ROOT_DIR}/tests/verify-idempotence.sh" \
+  "${ROOT_DIR}/tests/multipass-smoke.sh" \
   "${ROOT_DIR}/wsl-dev/bootstrap.sh" \
   "${ROOT_DIR}/ubuntu-server/bootstrap.sh"
 
