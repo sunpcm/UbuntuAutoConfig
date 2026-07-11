@@ -216,8 +216,11 @@ curl_download() {
     curl --fail --silent --show-error --location \
       "${url}" --output "${output}"
   else
+    # --speed-limit/--speed-time：传输速率低于 1KB/s 持续 30s 就中止本次尝试，
+    # 避免连上后数据流卡死导致无限挂起；配合 --retry 让停滞的尝试自动重来。
     curl --fail --silent --show-error --location \
-      --retry 5 --retry-delay 2 --retry-all-errors --connect-timeout 30 \
+      --retry 5 --retry-delay 2 --retry-all-errors \
+      --connect-timeout 30 --speed-limit 1024 --speed-time 30 \
       "${url}" --output "${output}"
   fi
 }
