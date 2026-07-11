@@ -207,15 +207,27 @@ download_base_url() {
   fi
 }
 
+# 从 GitHub 拉产物时，中国大陆网络常见 TLS 连接被重置（curl 56 unexpected eof）。
+# 对远程 URL 加有限重试 + 退避；--retry-all-errors 让连接类错误也参与重试。
+# 本地 file://（测试用例）没有瞬时错误，跳过重试以免拖慢失败路径。
+curl_download() {
+  local url="$1" output="$2"
+  if [[ "${url}" == file://* ]]; then
+    curl --fail --silent --show-error --location \
+      "${url}" --output "${output}"
+  else
+    curl --fail --silent --show-error --location \
+      --retry 5 --retry-delay 2 --retry-all-errors --connect-timeout 30 \
+      "${url}" --output "${output}"
+  fi
+}
+
 download_assets() {
   local base_url="$1"
   info "下载 DevOpsToolkit Release"
-  curl --fail --silent --show-error --location \
-    "${base_url}/${ARCHIVE_NAME}" --output "${TEMP_DIR}/${ARCHIVE_NAME}"
-  curl --fail --silent --show-error --location \
-    "${base_url}/${CHECKSUM_NAME}" --output "${TEMP_DIR}/${CHECKSUM_NAME}"
-  curl --fail --silent --show-error --location \
-    "${base_url}/${BUNDLE_NAME}" --output "${TEMP_DIR}/${BUNDLE_NAME}"
+  curl_download "${base_url}/${ARCHIVE_NAME}" "${TEMP_DIR}/${ARCHIVE_NAME}"
+  curl_download "${base_url}/${CHECKSUM_NAME}" "${TEMP_DIR}/${CHECKSUM_NAME}"
+  curl_download "${base_url}/${BUNDLE_NAME}" "${TEMP_DIR}/${BUNDLE_NAME}"
   chmod 0600 \
     "${TEMP_DIR}/${ARCHIVE_NAME}" \
     "${TEMP_DIR}/${CHECKSUM_NAME}" \
@@ -296,8 +308,7 @@ prepare_cosign() {
   fi
 
   info "下载并校验 Cosign ${COSIGN_VERSION}"
-  curl --fail --silent --show-error --location \
-    "${download_base}/${asset_name}" --output "${TEMP_DIR}/cosign"
+  curl_download "${download_base}/${asset_name}" "${TEMP_DIR}/cosign"
   chmod 0700 "${TEMP_DIR}/cosign"
   actual_sha="$(calculate_sha256 "${TEMP_DIR}/cosign")"
   [[ "${actual_sha}" == "${expected_sha}" ]] || fail "Cosign SHA256 校验失败。"
