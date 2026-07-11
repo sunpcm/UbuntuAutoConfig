@@ -81,4 +81,26 @@ if grep -nE 'host_key_checking[[:space:]]*=[[:space:]]*False|become[[:space:]]*=
   exit 1
 fi
 
+if grep -R -nE \
+  --exclude-dir=.git \
+  --exclude='verify-ansible.sh' \
+  --exclude='*.md' \
+  '(ssh-(rsa|ed25519)|ecdsa-sha2-[^[:space:]]+|sk-[^[:space:]]+)[[:space:]]+AAAA[A-Za-z0-9+/]{80,}' \
+  "${ROOT_DIR}"; then
+  echo "错误：仓库中发现疑似真实 SSH 公钥；请改用占位符或环境专用加密变量。" >&2
+  exit 1
+fi
+
+if [[ -d "${ROOT_DIR}/ubuntu-server/ansible" || -d "${ROOT_DIR}/wsl-dev/ansible" ]]; then
+  echo "错误：弃用的 Ansible 实现重新出现在原路径；当前只允许根目录 ansible/ 作为受支持实现。" >&2
+  exit 1
+fi
+
+if grep -n 'SCRIPT_DIR.*/ansible/group_vars' \
+  "${ROOT_DIR}/ubuntu-server/bootstrap.sh" \
+  "${ROOT_DIR}/wsl-dev/bootstrap.sh"; then
+  echo "错误：兼容入口不能读取已归档的旧变量。" >&2
+  exit 1
+fi
+
 echo "统一 Ansible 入口静态验证通过。"

@@ -1,0 +1,18 @@
+- name: Check nvm
+  stat:
+    path: "{{ ansible_env.HOME }}/.nvm/nvm.sh"
+  register: nvm_dir
+
+- name: Install nvm
+  shell: |
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+  when: not nvm_dir.stat.exists
+
+- name: Load nvm and install Node.js {{ node_version }}
+  shell: |
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    nvm install {{ node_version }}
+    nvm alias default {{ node_version }}
+  args:
+    executable: /bin/bash

@@ -1,0 +1,12 @@
+- name: Check Docker CLI availability (WSL + Docker Desktop)
+  command: docker version
+  register: docker_check
+  changed_when: false
+  failed_when: docker_check.rc != 0
+- name: Hint if Docker Desktop is not installed
+  fail:
+    msg: >
+      Docker CLI not found.
+      Please install Docker Desktop on Windows
+      and enable WSL integration.
+  when: docker_check.rc != 0

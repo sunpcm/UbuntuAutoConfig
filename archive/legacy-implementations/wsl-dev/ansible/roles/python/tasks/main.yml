@@ -1,0 +1,22 @@
+# ansible/roles/python/tasks/main.yml
+- name: Ensure system python exists
+  become: true
+  apt:
+    name: python3
+    state: present
+
+- name: Check uv
+  stat:
+    path: "{{ ansible_env.HOME }}/.cargo/bin/uv"
+  register: uv_bin
+
+- name: Install uv
+  shell: |
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  when: not uv_bin.stat.exists
+
+- name: uv hint
+  debug:
+    msg:
+      - "✅ uv installed"
+      - "👉 Use: uv python install 3.12 && uv venv"

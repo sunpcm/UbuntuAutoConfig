@@ -1,0 +1,20 @@
+# ansible/roles/brew/tasks/main.yml
+- name: Check brew
+  command: which brew
+  register: brew_check
+  failed_when: false
+  changed_when: false
+
+- name: Install Homebrew
+  shell: |
+    NONINTERACTIVE=1 /bin/bash -c \
+    "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  when: brew_check.rc != 0
+
+- name: Ensure brew env
+  blockinfile:
+    path: "{{ ansible_env.HOME }}/.profile"
+    create: yes
+    marker: "# {mark} HOMEBREW"
+    block: |
+      eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"

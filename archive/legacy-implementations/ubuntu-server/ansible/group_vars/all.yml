@@ -1,0 +1,29 @@
+---
+# 已归档：不能作为当前 DevOpsToolkit 的配置来源。
+# 当前唯一受支持的变量文件为 ansible/group_vars/all.yml。
+
+create_user: false
+username: "example_user"
+user_password: ""
+enable_passwordless_sudo: false
+
+enable_ssh_security: false
+ssh_port: 22
+disable_root_login: false
+disable_password_auth: false
+ssh_authorized_keys: []
+
+enable_firewall: false
+allowed_ports:
+  - { port: "{{ ssh_port }}", proto: tcp, comment: SSH }
+
+install_base_packages: false
+base_packages: []
+install_docker: false
+docker_users: []
+install_nginx: false
+install_brew: false
+install_zsh: false
+install_ohmyzsh: false
+install_fonts: false
+fonts_to_install: []

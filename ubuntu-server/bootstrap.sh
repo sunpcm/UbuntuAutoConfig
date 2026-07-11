@@ -12,9 +12,10 @@ if [[ ! -f "${INVENTORY}" ]]; then
   exit 1
 fi
 
-TARGET_USER="${TARGET_USER:-$(sed -nE 's/^[[:space:]]*username:[[:space:]]*["'\'']?([^"'\'' #]+).*/\1/p' "${SCRIPT_DIR}/ansible/group_vars/all.yml" | head -n 1)}"
+TARGET_USER="${TARGET_USER:-}"
 if [[ -z "${TARGET_USER}" ]]; then
-  echo "错误：请设置 TARGET_USER。" >&2
+  echo "错误：旧入口不再读取已归档变量，请显式设置 TARGET_USER。" >&2
+  echo "示例：TARGET_USER=developer $0 --private-key ~/.ssh/id_ed25519" >&2
   exit 1
 fi
 

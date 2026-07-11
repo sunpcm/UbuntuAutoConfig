@@ -1,0 +1,5 @@
+# ansible/roles/devtools/tasks/main.yml
+- name: Install tools via Brewfile
+  shell: brew bundle install --file={{ playbook_dir }}/../Brewfile
+  environment:
+    PATH: "/home/linuxbrew/.linuxbrew/bin:{{ ansible_env.PATH }}"

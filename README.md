@@ -190,4 +190,4 @@ vim ansible/inventories/user-only.ini
 - 根目录 `playbook.yml`
 - 根目录 `setup_wsl.yml`
 
-历史实现仍保留在原目录，待新流程完成真实环境验证后再删除。
+旧 Ansible 实现已移入 `archive/legacy-implementations/`，仅用于历史追溯，不能执行或作为配置来源。兼容入口只转发到统一实现，不再读取旧变量。

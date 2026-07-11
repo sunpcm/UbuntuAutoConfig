@@ -1,0 +1,8 @@
+# ansible/roles/sudo/tasks/main.yml
+- name: Enable passwordless sudo
+  become: true
+  copy:
+    dest: /etc/sudoers.d/99-wsl-dev
+    content: |
+      {{ ansible_env.USER }} ALL=(ALL) NOPASSWD:ALL
+    mode: "0440"

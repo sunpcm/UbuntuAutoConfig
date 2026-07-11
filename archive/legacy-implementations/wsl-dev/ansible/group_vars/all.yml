@@ -1,0 +1,24 @@
+---
+# 已归档：不能作为当前 DevOpsToolkit 的配置来源。
+# 当前唯一受支持的变量文件为 ansible/group_vars/all.yml。
+
+enable_brew: false
+enable_zsh: false
+enable_backup: false
+enable_python: false
+enable_go: false
+enable_node: false
+node_version: ""
+
+enable_git_config: false
+git_user_name: ""
+git_user_email: ""
+git_editor: nvim
+git_default_branch: main
+git_pull_rebase: "false"
+enable_windows_git_credential_helper: false
+
+enable_docker: false
+enable_windows_integration: false
+create_windows_symlinks: false
+enable_passwordless_sudo: false

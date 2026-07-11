@@ -8,7 +8,7 @@
 ansible/group_vars/all.yml
 ```
 
-旧目录下的 `wsl-dev/ansible/group_vars/all.yml` 和 `ubuntu-server/ansible/group_vars/all.yml` 只服务于弃用实现，不要再修改它们来配置新入口。
+旧 Ansible 实现位于 `archive/legacy-implementations/`，仅用于历史追溯，不能执行或作为配置来源。
 
 修改前备份：
 
