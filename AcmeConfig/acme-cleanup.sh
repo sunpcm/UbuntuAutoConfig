@@ -8,7 +8,6 @@ set -euo pipefail
 # 用法：sudo bash acme-cleanup.sh
 # ============================================================================
 
-ACME_USER="acme"
 ACME_HOME="/var/lib/acme"
 
 # 颜色输出

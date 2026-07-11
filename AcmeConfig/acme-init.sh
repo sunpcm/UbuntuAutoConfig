@@ -54,9 +54,6 @@ log_info "  ACME_EMAIL: $ACME_EMAIL"
 # ============================================================================
 log_info "创建 acme 系统用户..."
 
-# 检测 nologin 路径（P5 - 兼容性修复）
-NOLOGIN_PATH=$(command -v nologin 2>/dev/null || echo "/usr/sbin/nologin")
-
 if id "$ACME_USER" &>/dev/null; then
     log_warn "用户 $ACME_USER 已存在，跳过创建"
     CURRENT_SHELL="$(getent passwd "$ACME_USER" | cut -d: -f7)"
@@ -138,7 +135,7 @@ else
     # P1 - 修复 curl|sh 安全漏洞：下载-校验-执行
     log_info "下载 acme.sh 安装脚本..."
     TEMP_SCRIPT=$(mktemp)
-    trap "rm -f $TEMP_SCRIPT" EXIT
+    trap 'rm -f "$TEMP_SCRIPT"' EXIT
     
     if ! curl -fsSL https://get.acme.sh -o "$TEMP_SCRIPT"; then
         log_error "下载 acme.sh 安装脚本失败"
