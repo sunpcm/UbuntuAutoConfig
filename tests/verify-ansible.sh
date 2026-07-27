@@ -35,9 +35,7 @@ bash -n \
   "${ROOT_DIR}/tests/test-installer.sh" \
   "${ROOT_DIR}/tests/test-release.sh" \
   "${ROOT_DIR}/tests/verify-idempotence.sh" \
-  "${ROOT_DIR}/tests/multipass-smoke.sh" \
-  "${ROOT_DIR}/wsl-dev/bootstrap.sh" \
-  "${ROOT_DIR}/ubuntu-server/bootstrap.sh"
+  "${ROOT_DIR}/tests/multipass-smoke.sh"
 
 python3 -c 'import sys; from pathlib import Path; p=Path(sys.argv[1]); compile(p.read_text(), str(p), "exec")' \
   "${ROOT_DIR}/bin/devops-toolkit"
@@ -70,6 +68,17 @@ if grep -R -nE 'apt_key:|apt_repository:' "${ROOT_DIR}/ansible"; then
   exit 1
 fi
 
+if ! grep -Fq 'download[.]docker[.]com/linux/ubuntu' \
+  "${ROOT_DIR}/ansible/roles/docker/tasks/repository-cleanup.yml"; then
+  echo "错误：Docker 角色没有收敛会与 deb822 Signed-By 冲突的旧 .list 源。" >&2
+  exit 1
+fi
+if ! grep -Fq 'tasks_from: repository-cleanup' \
+  "${ROOT_DIR}/ansible/playbooks/ubuntu-bootstrap.yml"; then
+  echo "错误：Ubuntu bootstrap 没有在任何 apt 任务前清理冲突的旧 Docker 源。" >&2
+  exit 1
+fi
+
 if grep -R -nE 'curl[^|]*\|[[:space:]]*(sh|bash)' "${ROOT_DIR}/ansible"; then
   echo "错误：Ansible 实现中仍在执行 curl pipe shell。" >&2
   exit 1
@@ -81,9 +90,38 @@ if ! grep -Eq 'checksum:[[:space:]]+"sha256:' \
   exit 1
 fi
 
+if ! grep -Fq 'DEVOPS_TOOLKIT_UV_RELEASE_BASE_URL' \
+  "${ROOT_DIR}/ansible/group_vars/all.yml"; then
+  echo "错误：uv 下载没有统一的受控镜像环境变量入口。" >&2
+  exit 1
+fi
+
 if ! grep -Fq 'name: "{{ firewall_managed_profile_name }}"' \
   "${ROOT_DIR}/ansible/roles/firewall/tasks/main.yml"; then
   echo "错误：UFW 规则没有通过 DevOpsToolkit 托管 profile 收敛。" >&2
+  exit 1
+fi
+
+firewall_tasks="${ROOT_DIR}/ansible/roles/firewall/tasks/main.yml"
+firewall_detect_line="$(grep -n -m1 'Detect an existing DevOpsToolkit-managed allow rule' \
+  "${firewall_tasks}" | cut -d: -f1)"
+firewall_template_line="$(grep -n -m1 'Publish the DevOpsToolkit-owned UFW application profile' \
+  "${firewall_tasks}" | cut -d: -f1)"
+firewall_reconcile_line="$(grep -n -m1 'Reconcile an existing managed profile' \
+  "${firewall_tasks}" | cut -d: -f1)"
+firewall_allow_line="$(grep -n -m1 'Allow the managed application profile' \
+  "${firewall_tasks}" | cut -d: -f1)"
+if [[ -z "${firewall_detect_line}" || -z "${firewall_template_line}" || \
+      -z "${firewall_reconcile_line}" || -z "${firewall_allow_line}" ]] || \
+   ((firewall_detect_line >= firewall_template_line || \
+      firewall_template_line >= firewall_reconcile_line || \
+      firewall_reconcile_line >= firewall_allow_line)); then
+  echo "错误：UFW 必须先检测旧受管规则，再发布并收敛 profile，最后才允许新 profile。" >&2
+  exit 1
+fi
+if ! grep -Fq 'when: firewall_managed_allow_rule_exists | bool' "${firewall_tasks}" || \
+   ! grep -Fq 'when: not (firewall_managed_allow_rule_exists | bool)' "${firewall_tasks}"; then
+  echo "错误：UFW 旧受管规则必须原地 app update，不能重复 allow 多端口 profile。" >&2
   exit 1
 fi
 
@@ -104,6 +142,13 @@ fi
 if ! grep -Eq 'name:[[:space:]]*ssh\.socket' \
   "${ssh_security_role}/handlers/main.yml" 2>/dev/null; then
   echo "错误：ssh_security 的 handler 未重启 ssh.socket，端口变更不会生效。" >&2
+  exit 1
+fi
+if ! grep -Fq 'ansible.builtin.wait_for_connection:' \
+  "${ssh_security_role}/tasks/main.yml" 2>/dev/null || \
+   grep -Fq 'ansible.builtin.wait_for:' \
+  "${ssh_security_role}/tasks/main.yml" 2>/dev/null; then
+  echo "错误：SSH 端口切换必须通过 wait_for_connection 验证，避免 SSH alias 或 ProxyJump 被当作 DNS 主机名。" >&2
   exit 1
 fi
 
@@ -137,16 +182,28 @@ if grep -R -nE \
   exit 1
 fi
 
-if [[ -d "${ROOT_DIR}/ubuntu-server/ansible" || -d "${ROOT_DIR}/wsl-dev/ansible" ]]; then
-  echo "错误：弃用的 Ansible 实现重新出现在原路径；当前只允许根目录 ansible/ 作为受支持实现。" >&2
-  exit 1
-fi
-
-if grep -n 'SCRIPT_DIR.*/ansible/group_vars' \
-  "${ROOT_DIR}/ubuntu-server/bootstrap.sh" \
-  "${ROOT_DIR}/wsl-dev/bootstrap.sh"; then
-  echo "错误：兼容入口不能读取已归档的旧变量。" >&2
-  exit 1
-fi
+legacy_active_paths=(
+  playbook.yml
+  setup_wsl.yml
+  host.ini.examples
+  .zshrc.server
+  ubuntu-server/ansible.cfg
+  ubuntu-server/bootstrap.sh
+  ubuntu-server/host.ini.example
+  ubuntu-server/update.sh
+  ubuntu-server/ServerMaintainRules
+  wsl-dev/Brewfile
+  wsl-dev/bootstrap.sh
+  wsl-dev/uninstall.sh
+  wsl-dev/update.sh
+  ubuntu-server/ansible
+  wsl-dev/ansible
+)
+for legacy_path in "${legacy_active_paths[@]}"; do
+  if [[ -e "${ROOT_DIR}/${legacy_path}" ]]; then
+    echo "错误：已归档的旧入口或资产重新出现在活跃路径：${legacy_path}" >&2
+    exit 1
+  fi
+done
 
 echo "统一 Ansible 入口静态验证通过。"

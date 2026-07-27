@@ -75,4 +75,52 @@ with tempfile.TemporaryDirectory() as directory:
 assert wizard["project_default_version"]("node_version")
 assert wizard["project_default_version"]("go_version")
 
+credential_globals = wizard["collect_target_credentials"].__globals__
+original_choose = credential_globals["choose"]
+original_collect_public_keys = credential_globals["collect_public_keys"]
+original_confirm = credential_globals["confirm"]
+try:
+    credential_globals["choose"] = lambda *_args, **_kwargs: "key"
+    credential_globals["collect_public_keys"] = lambda *_args, **_kwargs: [
+        "ssh-ed25519 AAAATEST"
+    ]
+    confirm_defaults: list[bool] = []
+
+    def confirm_passwordless(_label: str, default: bool = True) -> bool:
+        confirm_defaults.append(default)
+        return True
+
+    credential_globals["confirm"] = confirm_passwordless
+    key_only = wizard["collect_target_credentials"]()
+finally:
+    credential_globals["choose"] = original_choose
+    credential_globals["collect_public_keys"] = original_collect_public_keys
+    credential_globals["confirm"] = original_confirm
+
+assert confirm_defaults == [False]
+assert key_only["target_password_hash"] == ""
+assert key_only["target_passwordless_sudo"] is True
+
+credential_globals = wizard["collect_target_credentials"].__globals__
+original_choose = credential_globals["choose"]
+original_confirm = credential_globals["confirm"]
+try:
+    credential_globals["choose"] = lambda *_args, **_kwargs: "existing"
+    existing_defaults: list[bool] = []
+
+    def confirm_existing(_label: str, default: bool = True) -> bool:
+        existing_defaults.append(default)
+        return default
+
+    credential_globals["confirm"] = confirm_existing
+    existing = wizard["collect_target_credentials"](
+        account_exists=True,
+    )
+finally:
+    credential_globals["choose"] = original_choose
+    credential_globals["confirm"] = original_confirm
+
+assert existing_defaults == [False]
+assert existing["target_passwordless_sudo"] is False
+
 print("交互式向导测试通过。")
