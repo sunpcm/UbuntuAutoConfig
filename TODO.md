@@ -1,69 +1,44 @@
 # DevOpsToolkit TODO
 
-> 更新日期：2026-07-11
+> 更新日期：2026-07-27
 >
-> 原则：按优先级推进；完成一项后补充验证证据，再进入下一项。
+> 原则：这里只保留尚未完成、可验证的工作；已完成阶段的详细记录移入
+> [`archive/progress/`](archive/progress/)。
 
-## P0：收敛遗留实现
+## 当前基线
 
-- [x] 明确 `ansible/` 为唯一实现，盘点并归档 `ubuntu-server/ansible/` 与 `wsl-dev/ansible/` 的重复角色和变量。
-- [x] 将旧入口收敛为只转发到统一入口的兼容包装，并增加明确的弃用提示。
-- [x] 从旧配置中移除个人 SSH 公钥、默认免密 sudo、开发端口和默认启用服务等高风险示例值。
-- [x] 增加仓库检查，阻止内联真实 SSH 公钥再次提交。
+- 唯一受支持实现是 `ansible/`，唯一受支持入口是 `bin/` 与 `install.sh`。
+- 原根目录兼容 Playbook、`wsl-dev/`、`ubuntu-server/` tracked 资产已归档；
+  `tests/verify-ansible.sh` 会阻止它们重新出现在活跃路径。
+- Ubuntu 22.04 / 24.04 已通过首次执行、第二次 `changed=0`、受控 uv 镜像和系统故障注入验证。
+- main 最近一次线上 Validate（`47cad1d`）通过；当前 latest Release 为 `v0.1.4`，但它早于
+  main 上的 GitHub 下载重试、停滞检测与 Cosign 镜像开关。
+- 安装器测试已覆盖 SHA256 错误、缺少 checksum / Sigstore bundle、危险 tar、版本不匹配、
+  Ubuntu 22.04 Ansible 版本过低等失败边界。
 
-## P1：安全与质量门禁
+## P0：发布前阻塞项
 
-- [x] 将 uv 安装改为固定版本产物下载并校验 SHA256，移除 `curl | sh`。
-- [x] 在 CI 中强制运行 ShellCheck、Ansible Lint、YAML Lint、Ruff、Actionlint 和 secrets scan。
-- [x] 让 UFW 规则具备声明式收敛能力：只清理 DevOpsToolkit 托管且已从配置删除的规则，不影响人工规则。
-- [x] env-check 去掉 push 路径过滤，让 quality 作业对全仓 shell/yaml 生效（原过滤只覆盖
-      ansible/bin/scripts/tests，AcmeConfig/wsl-dev 的问题会漏检）。
-- [x] 修复全仓 ShellCheck：删无引用的 `wsl-dev/scripts/*`，修 `wsl-dev/bootstrap.sh`、
-      `AcmeConfig/*` 的 SC2269/SC2034/SC2064。
-- [x] **修复 Ansible Lint 历史欠债（问题 B）**：`.yamllint.yml` 的 `document-start` 由
-      `present: false` 改为 `present: true`（与全仓 `---` 一致，消除 32 处）；根 `ansible.cfg`
-      加 `roles_path = ansible/roles`，让从仓库根运行的 ansible-lint 解析短角色名；`.ansible-lint`
-      将 `var-naming[no-role-prefix]`（profile_* 跨角色参数与 ansible_port 内置变量属有意为之）
-      加入 skip_list、`yaml[line-length]`（作者已设为 warning 级）加入 warn_list；两个 workflow
-      补 `---`。本地带 collections 复跑 ansible-lint 通过（0 failure，3 line-length 警告），
-      yamllint/shellcheck/verify-ansible 均绿。
+- [ ] 消除安装阶段的 Ansible Galaxy 网络单点：优先在 Release workflow 中把固定版本 collections 打进已签名
+      tarball；若仍保留运行时下载，则必须提供受控镜像、超时和清晰失败诊断。完成后补安装器回归测试。
+- [ ] 从通过验收的 main 发布下一个不可变版本，确认 Validate/Release 全绿、三个资产齐全，并分别用 latest 与
+      `--version` 安装命令验证 SHA256 + Sigstore 身份。
 
-## P1：Multipass 真实环境测试
+## P1：升级闭环
 
-> 2026-07-11 进展：已验证 Multipass 1.16.3、Apple Silicon `aarch64`、22.04/24.04 启动与联网，
-> 并在 22.04 验证项目目录挂载、SSH 22→2222 切换和 UFW 防锁死。完整双版本幂等测试仍受
-> VM 内 GitHub uv 产物下载长时间无响应阻塞；现已将 uv 调整为 `--with-uv` 扩展测试，核心双版本
-> 测试仍需重跑后才能计为完成。
->
-> 2026-07-11 24.04 复测发现并修复两个问题：
-> 1. **产品缺陷（已修）**：Ubuntu 22.10+（含 24.04）OpenSSH 由 `ssh.socket` 决定监听端口，
->    旧实现只改 `sshd_config` 的 `Port`，改端口在 24.04 上不生效；叠加 UFW 只放行新端口，会把
->    主机锁死。`ssh_security` 现在检测 socket 激活并写 `ssh.socket.d` override 收敛端口。已在
->    24.04 直接登录 2222 验证：主机只监听 2222、未锁死。
-> 2. **测试缺陷（已修）**：`verify_result` 用 `ufw status | grep 2222/tcp` 判定，而 UFW 通过托管
->    应用 profile 收敛，`ufw status` 只显示 profile 名，会误判失败；改用 `ufw app info` 断言端口。
->
-> 另观察到 `download.docker.com` 在本机 Multipass 网络下约 1/3 概率 `Connection reset`；Docker
-> key 下载重试已从 3 提升到 5、加 `timeout`。24.04 socket 修复后端到端绿灯：首次
-> `changed=25 failed=0`，第二次 `changed=0 failed=0`（幂等），`verify_result` 全通过。
+- [ ] 在真实 VM 记录一次升级与回滚：从 `v0.1.4` 升级到下一版本，确认旧版本目录保留、重复安装幂等，
+      再原子切回旧版并验证命令可用。
 
-- [x] 安装并验证 Multipass，确认 Apple Silicon 上虚拟机可正常启动、联网和挂载项目目录。
-- [x] 新增 Ubuntu 22.04 与 24.04 测试脚本，覆盖首次执行和第二次幂等执行（目标 `changed=0`）。
-      —— 两版本均端到端绿灯：24.04 首次 `changed=25`、22.04 首次 `changed=23`，第二次均 `changed=0`。
-      验证了 socket 分支：24.04 走 ssh.socket、22.04 走传统 ssh.service（socket 任务/handler 均正确跳过）。
-- [x] 覆盖用户创建、SSH 密钥登录、SSH 端口切换、UFW 防锁死、Docker 和 Nginx 服务状态。
-      —— 22.04 与 24.04 均端到端验证通过。
-- [x] 测试脚本默认使用临时实例名，并提供安全的检查、保留现场和清理命令。
-- [x] 评估将无破坏性的 Multipass 冒烟测试接入 CI；完整系统测试保留为定期或手动工作流。
+## 已完成项
 
-## P2：发布与维护
-
-> 2026-07-11 首个可用 Release：`v0.1.2`（含 tar.gz + sha256 + sigstore 三资产，
-> `releases/latest/download` 可达）。教训：**不要在网页手动创建 Release**——`release.yml`
-> 自建 Release，手动先建会让 `gh release create` 撞 `already exists`、资产不上传（v0.1.0/v0.1.1
-> 即因此为空，已删除）。发布步骤见 [发布流程](docs/RELEASING.md)。
-
-- [x] 记录发布流程与"禁止手动建 Release"约束（docs/RELEASING.md，README 已链接）。
-- [ ] 建立固定版本与校验和的升级流程，并记录升级验证结果。
-- [ ] 在真实 VM 验证完成后删除兼容实现，更新 README、配置文档和 Release 包内容。
-- [ ] 补充故障注入测试：SSH 配置无效、UFW 规则冲突、下载校验失败和重复执行中断恢复。
+- [x] 统一 WSL2、Ubuntu、user-only 三种模式并归档重复实现。
+- [x] 固定 Oh My Zsh、Linuxbrew、插件与 uv 产物版本/校验值。
+- [x] 建立 ShellCheck、Ansible Lint、YAML Lint、Ruff、Actionlint、gitleaks 与 Ansible 2.12/2.18 CI。
+- [x] 完成 22.04 / 24.04 SSH 22 → 2222、UFW、Docker、Nginx 与二次 `changed=0` 验证。
+- [x] 修复 24.04 `ssh.socket` 端口切换并增加静态防锁死护栏。
+- [x] 建立 SHA256 + Sigstore Release、不可变安装目录、升级/回滚机制和发布手册。
+- [x] 为 uv 增加受控 HTTPS base URL，并在 22.04 / 24.04 验证固定 SHA256 产物与二次幂等。
+- [x] 增加系统故障注入：无效 sshd 配置预重启失败、陈旧 UFW profile、冲突 Docker APT 源、部分账户状态
+      中断恢复，最终均达到 `changed=0`。
+- [x] 在 Ubuntu 22.04 真实服务器完成 root 本地向导与 macOS 控制端远程向导：验证目标用户密钥登录、
+      显式 `NOPASSWD`、Shell/uv、Docker/Nginx/UFW/SSH，并且两条链路第二次执行均为 `changed=0`。
+- [x] 远程 SSH 连通性验证改用 `wait_for_connection`，支持 `~/.ssh/config` alias / ProxyJump，并增加静态护栏。

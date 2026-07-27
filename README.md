@@ -33,10 +33,12 @@
 生产环境建议固定版本：
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/sunpcm/DevOpsToolkit/main/install.sh)" -- --version v0.1.0
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/sunpcm/DevOpsToolkit/main/install.sh)" -- --version v0.1.4
 ```
 
-完整的安装位置、`--no-run`、升级、回滚和供应链边界见 [安装、升级与回滚](docs/INSTALLATION.md)。首个 Release 发布前，一行安装地址尚无可下载资产，请暂时使用下面的源码方式。
+`v0.1.4` 是当前已发布基线；固定版本时应替换为你已审查的实际 tag。完整的安装位置、
+`--no-run`、受限网络镜像、升级、回滚和供应链边界见
+[安装、升级与回滚](docs/INSTALLATION.md)。
 
 ### 从源码运行（CI 与高级用户）
 
@@ -44,9 +46,13 @@
 git clone https://github.com/sunpcm/DevOpsToolkit.git
 cd DevOpsToolkit
 
-# Ubuntu / WSL2
+# Ubuntu / WSL2；要求 ansible-core >= 2.12
 sudo apt update
-sudo apt install -y ansible git
+sudo apt install -y ansible python3-pip git
+
+# Ubuntu 22.04 的 apt ansible 只有 2.10，需要补装兼容版本
+ansible-playbook --version
+sudo python3 -m pip install 'ansible-core>=2.12,<2.19'
 
 # 仅密码 SSH 登录需要
 sudo apt install -y sshpass
@@ -186,13 +192,8 @@ vim ansible/inventories/user-only.ini
 Ubuntu 22.04/24.04 系统级验证使用严格命名的一次性实例，详见
 [Multipass 真实环境测试](docs/MULTIPASS_TESTING.md)。不要在长期保留的 Multipass 实例上测试 SSH 端口切换。
 
-## 兼容入口
+## 历史实现
 
-以下入口暂时保留，但只作为兼容包装，不应再用于新文档或自动化：
-
-- `wsl-dev/bootstrap.sh`
-- `ubuntu-server/bootstrap.sh`
-- 根目录 `playbook.yml`
-- 根目录 `setup_wsl.yml`
-
-旧 Ansible 实现已移入 `archive/legacy-implementations/`，仅用于历史追溯，不能执行或作为配置来源。兼容入口只转发到统一实现，不再读取旧变量。
+统一实现已完成 22.04/24.04 真实 VM 验证，旧 `wsl-dev/`、`ubuntu-server/` 入口和根目录
+兼容 Playbook 已全部移入 `archive/`。它们仅用于追溯，不能执行、不能作为配置来源，也不会进入
+Release 包。当前只支持 `bin/` 与 `ansible/` 下的入口和实现。

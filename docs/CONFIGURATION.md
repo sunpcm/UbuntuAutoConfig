@@ -30,7 +30,10 @@ vim ansible/group_vars/all.yml
 
 新用户至少需要密码哈希或 SSH 公钥。已有用户不会被强制重置密码。
 
-目标用户会加入 `sudo` 组。如果新用户只配置了 SSH 密钥而没有可用密码，交互式 sudo 无法输入账户密码；此时应根据安全策略设置账户密码，或显式启用 `target_passwordless_sudo`。`NOPASSWD:ALL` 权限很高，不应默认开启。
+目标用户会加入 `sudo` 组。如果新用户只配置了 SSH 密钥而没有可用密码，交互式 sudo 无法输入账户密码；
+此时应根据安全策略设置账户密码，或在向导中明确确认启用 `target_passwordless_sudo`。
+`NOPASSWD:ALL` 权限很高，默认保持关闭；bootstrap 向导每次都会显示该选择，避免失败重跑时静默改变
+已有账户的 sudo 策略。
 
 ### 用户环境
 
@@ -64,11 +67,22 @@ uv_artifacts:
   aarch64:
     archive: uv-aarch64-unknown-linux-gnu.tar.gz
     sha256: f8e23ec786b18660ade6b033b6191b7e9c283c872eeb8c4531d56a873decf160
+uv_release_base_url_default: "https://github.com/astral-sh/uv/releases/download/{{ uv_version }}"
 nvm_version: bab86d5de571015b63fd8fc30b47bbe072a1290e
 node_version: "24.11.1"
 goenv_version: "3.1.4"
 go_version: "1.22.1"
 ```
+
+受限网络可以通过控制端环境变量覆盖 uv 的版本目录，所有入口都会继承该值：
+
+```bash
+DEVOPS_TOOLKIT_UV_RELEASE_BASE_URL="https://可信镜像.example/astral-sh/uv/releases/download/0.9.18" \
+  ./bin/ubuntu-bootstrap ansible/inventories/ubuntu.ini developer
+```
+
+覆盖地址必须是 HTTPS，且仍会使用 `uv_artifacts` 中固定的 SHA256 校验下载结果。镜像不能改变
+版本、架构或完整性约束；不要把变量指向自动跟随 `latest` 的地址。
 
 交互式向导启用 Node.js 或 Go 时会询问精确版本，并通过 extra vars 覆盖本次执行；手工 Playbook 和 CI 仍以这里的公共变量为准。系统 Python 不由工具切换，项目 Python 应使用 uv 管理。
 

@@ -6,7 +6,7 @@
 
 ### 控制端要求
 
-- Ansible
+- `ansible-core >= 2.12`
 - Git
 - SSH 客户端（远程场景）
 - 能访问 GitHub 和软件源
@@ -88,7 +88,10 @@ target_password_hash: "$6$..."
 
 ```bash
 sudo apt update
-sudo apt install -y ansible git
+sudo apt install -y ansible python3-pip git
+ansible-playbook --version
+# Ubuntu 22.04 的 apt ansible 为 2.10；仅在版本低于 2.12 时执行
+sudo python3 -m pip install 'ansible-core>=2.12,<2.19'
 ansible-galaxy collection install -r ansible/requirements.yml
 ```
 

@@ -105,7 +105,7 @@ cosign version
 下载同一版本的三个资产：
 
 ```bash
-VERSION=v0.1.0
+VERSION=v0.1.4
 gh release download "${VERSION}" \
   --repo sunpcm/DevOpsToolkit \
   --pattern 'devops-toolkit.tar.gz*' \
@@ -154,9 +154,10 @@ git log -1 --show-signature
 确认工作区为空、测试通过，并核对 tag 指向：
 
 ```bash
-git tag -s v0.1.0 -m "DevOpsToolkit v0.1.0"
-git show --show-signature v0.1.0
-git push origin v0.1.0
+VERSION=v0.1.5  # 示例；必须换成尚未使用的新版本
+git tag -s "${VERSION}" -m "DevOpsToolkit ${VERSION}"
+git show --show-signature "${VERSION}"
+git push origin "${VERSION}"
 ```
 
 `git tag -s` 需要提前配置 GPG 或 SSH signing key。不要在签名验证失败时改用未签名 tag 绕过规则。
@@ -172,7 +173,7 @@ INSTALLER_COMMIT="替换为已审查的完整提交 SHA"
 curl -fsSLo /tmp/devops-toolkit-install.sh \
   "https://raw.githubusercontent.com/sunpcm/DevOpsToolkit/${INSTALLER_COMMIT}/install.sh"
 less /tmp/devops-toolkit-install.sh
-/bin/bash /tmp/devops-toolkit-install.sh --version v0.1.0
+/bin/bash /tmp/devops-toolkit-install.sh --version v0.1.4
 ```
 
 - Cosign 信任根和透明日志验证需要网络。网络受限时安装器会安全失败，不会降级为只检查 SHA256。

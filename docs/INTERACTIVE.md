@@ -36,13 +36,21 @@ sudo ./bin/devops-toolkit
 - 已经以 root 登录新服务器时，可选择“当前服务器本地执行”，无需再次配置 SSH inventory。
 - 也可以从 macOS、WSL 或其他控制端通过 SSH 配置远程服务器。
 - 输入服务器、当前 SSH 端口和 root 认证方式。
+- 目标主机可以是可解析主机名/IP，也可以是 `~/.ssh/config` 中的 Host alias；端口切换后的验证使用
+  Ansible SSH 连接配置，因此兼容 alias 与 ProxyJump。
+- bootstrap 模式每次都会明确询问是否授予目标用户 `NOPASSWD:ALL`；该高权限选项始终默认关闭且不记忆。
+  新建“只配置 SSH 公钥”用户时会额外提示常规 sudo 无密码可验证；失败后重跑仍须重新确认该选项，向导
+  不会静默假设已有账户的 sudo 策略。
 - 创建或更新普通用户。
 - 公钥既可直接粘贴，也可输入 `.pub` 文件路径。
 - 选择 Linuxbrew、Docker、Nginx、UFW 和 OpenSSH 管理。
 - 启用 Nginx 和 UFW 时自动放行 80/443。
 - 支持输入其他 TCP/UDP 放行端口。
 
-当前 Ubuntu Playbook仍要求 root SSH 登录，因此向导不会禁用 root 登录。使用密钥连接且给目标用户配置了公钥时，可以选择禁用 SSH 密码认证。
+当前 Ubuntu Playbook 仍要求 root SSH 登录，因此远程模式开始前必须允许 root 公钥登录；若服务器已设置
+`PermitRootLogin no`，应改用服务器本地执行模式，或在有备用控制台的前提下临时允许
+`PermitRootLogin prohibit-password`。向导本身不会禁用 root 登录。使用密钥连接且给目标用户配置了公钥时，
+可以选择禁用 SSH 密码认证。
 
 新服务器本地初始化的推荐流程：
 
@@ -52,13 +60,18 @@ sudo ./bin/devops-toolkit
 
 安装阶段会验证 SHA256 和 Sigstore 发布身份；签名或网络验证失败时不会启动向导，也不会降级为未签名安装。详细故障排查见[安装、升级与回滚](INSTALLATION.md)。
 
-首个 Release 发布前，或需要审查源码时使用 clone：
+需要审查最新源码、开发调试或不使用 Release 安装器时使用 clone。源码运行要求
+`ansible-core >= 2.12`；Ubuntu 22.04 的 apt `ansible` 只有 2.10，应优先使用安装器自动补齐，
+或手工安装兼容版本：
 
 ```bash
 apt update
-apt install -y git ansible
+apt install -y git ansible python3-pip
 git clone https://github.com/sunpcm/DevOpsToolkit.git
 cd DevOpsToolkit
+ansible-playbook --version
+# 仅当版本低于 2.12 时执行
+python3 -m pip install 'ansible-core>=2.12,<2.19'
 ansible-galaxy collection install -r ansible/requirements.yml
 ./bin/devops-toolkit
 ```

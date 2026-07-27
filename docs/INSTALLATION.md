@@ -32,6 +32,9 @@ export PATH="$HOME/.local/bin:$PATH"
 ```
 
 普通用户安装绝不提权。缺少 Python、Ansible、Git、curl 或 OpenSSL 时，安装器会停止，并给出需要管理员安装的依赖。
+系统模式要求 `ansible-core >= 2.12`；Ubuntu 22.04 的 apt 版本只有 2.10，安装器会安装
+`python3-pip`，再固定到兼容范围 `ansible-core>=2.12,<2.19` 并复核版本。Ubuntu 24.04
+若触发系统 pip 保护，则只在该受控 bootstrap 步骤使用 `--break-system-packages`。
 
 ## 安装器验证顺序
 
@@ -52,13 +55,13 @@ export PATH="$HOME/.local/bin:$PATH"
 生产环境推荐固定版本：
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/sunpcm/DevOpsToolkit/main/install.sh)" -- --version v0.1.0
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/sunpcm/DevOpsToolkit/main/install.sh)" -- --version v0.1.4
 ```
 
 也可以通过环境变量指定：
 
 ```bash
-DEVOPS_TOOLKIT_VERSION=v0.1.0 \
+DEVOPS_TOOLKIT_VERSION=v0.1.4 \
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/sunpcm/DevOpsToolkit/main/install.sh)"
 ```
 
@@ -103,7 +106,7 @@ devops-toolkit --version
 先确认旧版本可执行，再原子替换 `current`。root 安装示例：
 
 ```bash
-test -x /opt/devops-toolkit/releases/v0.1.0/bin/devops-toolkit
+test -x /opt/devops-toolkit/releases/v0.1.4/bin/devops-toolkit
 python3 - <<'PY'
 import os
 from pathlib import Path
@@ -111,7 +114,7 @@ from pathlib import Path
 base = Path("/opt/devops-toolkit")
 temporary = base / ".current.rollback"
 temporary.unlink(missing_ok=True)
-temporary.symlink_to("releases/v0.1.0")
+temporary.symlink_to("releases/v0.1.4")
 os.replace(temporary, base / "current")
 PY
 devops-toolkit --version
@@ -175,3 +178,37 @@ curl -I https://tuf-repo-cdn.sigstore.dev
 ```
 
 网络恢复后重新运行安装器即可；失败过程不会删除旧版本。
+
+### Ansible Galaxy 安装 collections 长时间无响应
+
+当前版本会在目标主机运行 `ansible-galaxy collection install`，下载 `ansible.posix` 与
+`community.general` 的固定版本。GitHub Release、Cosign 和 uv 镜像均不能覆盖这个下载源；受限网络中
+Galaxy 仍可能成为安装阶段的单点。中断或失败不会切换 `current`，网络恢复后可重试。
+
+在仓库把 collections 纳入签名 Release 产物前，不建议通过放宽版本或使用系统自带旧 collection 绕过；
+Ubuntu 22.04 的旧版本可能与较新的 ansible-core 不兼容。从源码运行时，应先显式完成：
+
+```bash
+ansible-galaxy collection install -r ansible/requirements.yml
+```
+
+### GitHub Release 或 Cosign 下载过慢
+
+安装器对远程下载启用有限重试和传输停滞检测。网络受限时可以分别覆盖本项目 Release 资产
+与固定版本 Cosign 的下载目录；下载内容仍会经过 SHA256 和 Sigstore 身份验证：
+
+```bash
+curl -fsSL -o /tmp/devops-toolkit-install.sh \
+  https://raw.githubusercontent.com/sunpcm/DevOpsToolkit/main/install.sh
+
+sudo env \
+  DEVOPS_TOOLKIT_DOWNLOAD_BASE="https://可信镜像.example/DevOpsToolkit/releases/download/v0.1.4" \
+  DEVOPS_TOOLKIT_COSIGN_BASE="https://可信镜像.example/sigstore/cosign/releases/download/v3.1.1" \
+  bash /tmp/devops-toolkit-install.sh --version v0.1.4
+```
+
+`DEVOPS_TOOLKIT_DOWNLOAD_BASE` 必须直接包含三个固定名资产；`DEVOPS_TOOLKIT_COSIGN_BASE`
+必须直接包含当前平台的 `cosign-<os>-<arch>`。镜像只能改善可达性，不能跳过校验。
+
+不要从未经审查的镜像直接执行 `install.sh`：Release 资产和 Cosign 有内置校验，安装器脚本本身没有
+独立签名。高安全环境应按供应链文档固定安装器 commit、先审查再执行。

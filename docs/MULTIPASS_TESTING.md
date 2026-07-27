@@ -35,7 +35,7 @@ Ubuntu 22.10 及以后（含 24.04 LTS）默认用 systemd socket 激活 OpenSSH
 默认行为：
 
 - 创建 `devops-toolkit-2204-test-*` 和 `devops-toolkit-2404-test-*`；
-- 验证实例版本、Apple Silicon 架构、联网和项目目录挂载；
+- 验证实例版本、Apple Silicon 架构、联网和宿主项目标记文件传输；
 - 生成一次性 SSH 密钥并配置 root bootstrap 入口；
 - 创建 `devops_test`，将 SSH 从 22 切到 2222，并验证 UFW 未锁死连接；
 - 安装并检查 Docker 和 Nginx；
@@ -54,8 +54,38 @@ Ubuntu 22.10 及以后（含 24.04 LTS）默认用 systemd socket 激活 OpenSSH
 ./tests/multipass-smoke.sh run --with-uv
 ```
 
-该扩展项依赖 VM 能稳定访问 GitHub Release assets。默认系统级测试不启用它，避免 GitHub 下载波动
-掩盖 SSH、UFW、Docker、Nginx 和幂等性结果。
+验证受控 uv 镜像入口：
+
+```bash
+DEVOPS_TOOLKIT_UV_RELEASE_BASE_URL="https://可信镜像.example/astral-sh/uv/releases/download/0.9.18" \
+  ./tests/multipass-smoke.sh run --with-uv
+```
+
+镜像目录必须包含仓库当前 `uv_artifacts` 对应的文件；下载后仍执行固定 SHA256 校验。
+
+如果 Mac 使用仅监听本机的代理，且 Multipass VM 受到 Fake-IP DNS 影响，可以先通过临时 TCP 转发
+向 VM 暴露一个无认证的 HTTP 代理，再执行：
+
+```bash
+MULTIPASS_TEST_PROXY="http://192.168.252.1:7898" \
+  ./tests/multipass-smoke.sh run --with-uv
+```
+
+该变量只会在一次性 VM 中写入测试用 `/etc/environment` 和 apt 配置，不会修改宿主机代理配置。代理
+只能使用不含凭据的 `http://host:port`；测试结束后实例会被删除。
+
+在一次性实例中额外执行系统故障注入：
+
+```bash
+./tests/multipass-smoke.sh run --with-faults
+```
+
+该模式验证无效 sshd 配置在重启前失败、陈旧 UFW profile 在启用默认拒绝前原地收敛、旧 Docker `.list`
+源在任何 apt 操作前移除，以及账户创建完成后发生受控中断时，完整重跑和第二次执行仍能达到
+`changed=0`。故障模式不会在非 `*-test-*` 实例上切换 SSH 端口；不要把这组测试手工复制到长期服务器。
+
+`--with-uv` 依赖 VM 能稳定访问 GitHub Release assets；默认系统级测试不启用它，避免下载波动掩盖
+SSH、UFW、Docker、Nginx 和幂等性结果。`--with-faults` 本身不启用 uv。
 
 只读检查未切换 SSH 端口的实例：
 

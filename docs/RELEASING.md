@@ -30,14 +30,15 @@ git status --short                 # 应为空
 
 ```bash
 # 版本号遵循 vMAJOR.MINOR.PATCH
-git tag -a v0.1.2 origin/main -m "DevOpsToolkit v0.1.2"
-git push origin v0.1.2
+VERSION=v0.1.5  # 示例；必须换成尚未使用的新版本
+git tag -a "${VERSION}" origin/main -m "DevOpsToolkit ${VERSION}"
+git push origin "${VERSION}"
 ```
 
 推荐用签名 tag（需先配置 GPG/SSH signing key）：
 
 ```bash
-git tag -s v0.1.2 origin/main -m "DevOpsToolkit v0.1.2"
+git tag -s "${VERSION}" origin/main -m "DevOpsToolkit ${VERSION}"
 ```
 
 推送后工作流会：`verify-ansible.sh` → 构建固定名产物 → Cosign 用 GitHub OIDC 签名 →
@@ -47,7 +48,7 @@ git tag -s v0.1.2 origin/main -m "DevOpsToolkit v0.1.2"
 
 ```bash
 gh run watch $(gh run list --workflow=Release --limit 1 --json databaseId -q '.[0].databaseId')
-gh release view v0.1.2 --json assets -q '.assets[].name'
+gh release view "${VERSION}" --json assets -q '.assets[].name'
 ```
 
 必须看到三个资产：
@@ -70,14 +71,16 @@ curl -fsSL -o /dev/null -w "%{http_code}\n" \
 若 Release 工作流失败或产物缺失（例如误建过同名 Release）：
 
 ```bash
-# 删掉坏 Release 及其 tag（本地 + 远端）
-gh release delete v0.1.2 --yes --cleanup-tag
+# 仅适用于尚未成功发布、没有被用户安装过的空 Release
+FAILED_VERSION=v0.1.5
+gh release delete "${FAILED_VERSION}" --yes --cleanup-tag
 git fetch --prune --prune-tags origin
-git tag -d v0.1.2 2>/dev/null
+git tag -d "${FAILED_VERSION}" 2>/dev/null
 
-# 修好原因后，从 main 重新打 tag 并只推 tag（依旧不要手动建 Release）
-git tag -a v0.1.2 origin/main -m "DevOpsToolkit v0.1.2"
-git push origin v0.1.2
+# 修好原因后优先使用新的 patch 版本，并只推 tag（依旧不要手动建 Release）
+VERSION=v0.1.6
+git tag -a "${VERSION}" origin/main -m "DevOpsToolkit ${VERSION}"
+git push origin "${VERSION}"
 ```
 
 ## 安装（发布成功后）
@@ -86,7 +89,7 @@ git push origin v0.1.2
 
 ```bash
 sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/sunpcm/DevOpsToolkit/main/install.sh)"
-# 固定版本：追加 -- --version v0.1.2
+# 固定版本：追加 -- --version <已审查的 tag>
 ```
 
 安装器会同时校验 SHA256 与 Sigstore 身份，任一失败都不会降级安装。
