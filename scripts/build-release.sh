@@ -29,7 +29,8 @@ chmod 0755 "${PACKAGE_DIR}/bin/devops-toolkit" "${PACKAGE_DIR}/install.sh"
 rm -f \
   "${OUTPUT_DIR}/devops-toolkit.tar.gz" \
   "${OUTPUT_DIR}/devops-toolkit.tar.gz.sha256"
-COPYFILE_DISABLE=1 tar -C "${STAGE_DIR}" -czf "${OUTPUT_DIR}/devops-toolkit.tar.gz" devops-toolkit
+COPYFILE_DISABLE=1 tar --no-xattrs -C "${STAGE_DIR}" \
+  -czf "${OUTPUT_DIR}/devops-toolkit.tar.gz" devops-toolkit
 
 if command -v sha256sum >/dev/null 2>&1; then
   (cd "${OUTPUT_DIR}" && sha256sum devops-toolkit.tar.gz >devops-toolkit.tar.gz.sha256)

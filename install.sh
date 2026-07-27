@@ -34,6 +34,7 @@ Options:
 Environment:
   DEVOPS_TOOLKIT_VERSION        Alternative to --version.
   DEVOPS_TOOLKIT_DOWNLOAD_BASE  Override the release asset directory (testing/mirror).
+  DEVOPS_TOOLKIT_COSIGN_BASE    Override the pinned Cosign asset directory (mirror).
 EOF
 }
 
