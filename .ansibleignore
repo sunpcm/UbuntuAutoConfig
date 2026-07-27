@@ -13,7 +13,6 @@ docs/
 # 示例和模板文件
 *.example
 *.template
-host.ini.examples
 
 # 开发和调试文件
 fix-homebrew.sh
