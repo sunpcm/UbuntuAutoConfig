@@ -8,11 +8,17 @@
     - name: Require a root SSH session and an explicit target account
       ansible.builtin.assert:
         that:
-          - ansible_user_id == 'root'
+          - ansible_facts['user_id'] == 'root'
           - target_user | length > 0
           - target_user != 'root'
           - target_user is match('^[a-z_][a-z0-9_-]*[$]?$')
         fail_msg: "ubuntu-bootstrap requires ansible_user=root and -e target_user=<user>."
+
+    - name: Remove conflicting legacy Docker APT sources before any package operation
+      ansible.builtin.include_role:
+        name: docker
+        tasks_from: repository-cleanup
+      when: install_docker | bool
 
   roles:
     - role: system_base

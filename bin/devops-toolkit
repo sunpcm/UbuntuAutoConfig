@@ -352,7 +352,10 @@ def collect_user_modules(defaults: dict[str, Any] | None = None) -> dict[str, An
     return values
 
 
-def collect_target_credentials(default_public_key: str = "", account_exists: bool = False) -> dict[str, Any]:
+def collect_target_credentials(
+    default_public_key: str = "",
+    account_exists: bool = False,
+) -> dict[str, Any]:
     default_mode = "existing" if account_exists else ("both" if default_public_key else "password")
     mode = choose(
         "选择目标用户登录凭据（这里只选择方式，不输入密码）",
@@ -373,10 +376,16 @@ def collect_target_credentials(default_public_key: str = "", account_exists: boo
     if mode == "existing" and not account_exists:
         if not confirm("未提供任何登录凭据；仅当目标用户已经存在时才能继续。确认继续", False):
             raise WizardError("已取消：新用户至少需要密码或 SSH 公钥。")
+    if mode == "key" and not account_exists:
+        print("提示：仅密钥的新用户没有本地密码，常规 sudo 密码验证将不可用。")
+    passwordless_sudo = confirm(
+        "为该用户启用 NOPASSWD:ALL（高权限）",
+        False,
+    )
     return {
         "target_authorized_keys": keys,
         "target_password_hash": password_hash,
-        "target_passwordless_sudo": False,
+        "target_passwordless_sudo": passwordless_sudo,
     }
 
 

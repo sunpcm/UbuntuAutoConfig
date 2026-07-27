@@ -1,7 +1,12 @@
 ---
 - name: Map the host architecture for Docker packages
   ansible.builtin.set_fact:
-    docker_deb_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_architecture] | default(ansible_architecture) }}"
+    docker_deb_arch: >-
+      {{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']]
+         | default(ansible_facts['architecture']) }}
+
+- name: Remove legacy Docker APT sources before configuring the managed source
+  ansible.builtin.import_tasks: repository-cleanup.yml
 
 - name: Install Docker repository prerequisites
   become: true
@@ -45,7 +50,7 @@
     content: |
       Types: deb
       URIs: https://download.docker.com/linux/ubuntu
-      Suites: {{ ansible_distribution_release }}
+      Suites: {{ ansible_facts['distribution_release'] }}
       Components: stable
       Architectures: {{ docker_deb_arch }}
       Signed-By: /etc/apt/keyrings/docker.asc
@@ -61,7 +66,12 @@
       - docker-ce-cli
       - docker-compose-plugin
     state: present
-    update_cache: "{{ docker_repository_key.changed or docker_repository.changed }}"
+    update_cache: >-
+      {{
+        docker_repository_key.changed
+        or docker_repository.changed
+        or docker_legacy_sources.changed
+      }}
 
 - name: Enable Docker
   become: true

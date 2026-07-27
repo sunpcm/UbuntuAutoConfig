@@ -9,18 +9,19 @@
     - name: Resolve the authenticated account
       ansible.builtin.getent:
         database: passwd
-        key: "{{ ansible_user_id }}"
+        key: "{{ ansible_facts['user_id'] }}"
 
     - name: Record and validate the authenticated identity
       ansible.builtin.set_fact:
-        user_only_name: "{{ ansible_user_id }}"
-        user_only_home: "{{ getent_passwd[ansible_user_id][4] }}"
+        user_only_name: "{{ ansible_facts['user_id'] }}"
+        user_only_home: >-
+          {{ ansible_facts['getent_passwd'][ansible_facts['user_id']][4] }}
 
     - name: Refuse removal outside the authenticated non-root HOME
       ansible.builtin.assert:
         that:
-          - ansible_user_id != 'root'
-          - user_only_home == ansible_env.HOME
+          - ansible_facts['user_id'] != 'root'
+          - user_only_home == ansible_facts['env']['HOME']
           - user_only_home.startswith('/')
           - user_only_home != '/'
 

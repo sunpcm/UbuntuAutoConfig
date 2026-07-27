@@ -17,7 +17,7 @@
 - name: Ensure supplied HOME matches the account database
   ansible.builtin.assert:
     that:
-      - getent_passwd[profile_target_user][4] == profile_target_home
+      - ansible_facts['getent_passwd'][profile_target_user][4] == profile_target_home
     fail_msg: "Profile HOME does not match passwd database; refusing to write."
 
 - name: Create managed user configuration directory
@@ -184,20 +184,27 @@
 - name: Validate the uv release artifact for this architecture
   ansible.builtin.assert:
     that:
-      - ansible_architecture in uv_artifacts
-      - uv_artifacts[ansible_architecture].archive | length > 0
-      - uv_artifacts[ansible_architecture].sha256 is match('^[0-9a-f]{64}$')
+      - ansible_facts['architecture'] in uv_artifacts
+      - uv_artifacts[ansible_facts['architecture']].archive | length > 0
+      - uv_artifacts[ansible_facts['architecture']].sha256 is match('^[0-9a-f]{64}$')
+      - uv_release_base_url | string is match('^https://\\S+$')
     fail_msg: >-
-      uv {{ uv_version }} has no pinned, checksummed artifact for
-      {{ ansible_architecture }}. Add it to uv_artifacts before continuing.
+      uv {{ uv_version }} needs a pinned, checksummed artifact for
+      {{ ansible_facts['architecture'] }} and an HTTPS release base URL.
   when:
     - configure_uv | bool
-    - user_uv.rc != 0 or not user_uv.stdout.startswith('uv ' ~ uv_version ~ ' ')
+    - >-
+      user_uv.rc != 0 or
+      not ((user_uv.stdout | trim) == ('uv ' ~ uv_version) or
+           (user_uv.stdout | trim).startswith('uv ' ~ uv_version ~ ' '))
 
 - name: Install the pinned uv release artifact in the target HOME
   when:
     - configure_uv | bool
-    - user_uv.rc != 0 or not user_uv.stdout.startswith('uv ' ~ uv_version ~ ' ')
+    - >-
+      user_uv.rc != 0 or
+      not ((user_uv.stdout | trim) == ('uv ' ~ uv_version) or
+           (user_uv.stdout | trim).startswith('uv ' ~ uv_version ~ ' '))
   block:
     - name: Create a temporary uv extraction directory
       become: "{{ profile_use_become }}"
@@ -212,9 +219,10 @@
       become_user: "{{ profile_target_user }}"
       ansible.builtin.get_url:
         url: >-
-          {{ uv_release_base_url }}/{{ uv_artifacts[ansible_architecture].archive }}
+          {{ uv_release_base_url | regex_replace('/+$', '')
+             }}/{{ uv_artifacts[ansible_facts['architecture']].archive }}
         dest: "{{ uv_temp_dir.path }}/uv.tar.gz"
-        checksum: "sha256:{{ uv_artifacts[ansible_architecture].sha256 }}"
+        checksum: "sha256:{{ uv_artifacts[ansible_facts['architecture']].sha256 }}"
         mode: "0600"
         timeout: 60
       register: uv_archive_download
@@ -243,8 +251,8 @@
       become_user: "{{ profile_target_user }}"
       ansible.builtin.copy:
         src: >-
-          {{ uv_temp_dir.path }}/{{ uv_artifacts[ansible_architecture].archive
-          | regex_replace('\\.tar\\.gz$', '') }}/{{ item }}
+          {{ uv_temp_dir.path }}/{{ uv_artifacts[ansible_facts['architecture']].archive
+          | regex_replace('[.]tar[.]gz$', '') }}/{{ item }}
         dest: "{{ profile_target_home }}/.local/bin/{{ item }}"
         remote_src: true
         mode: "0755"

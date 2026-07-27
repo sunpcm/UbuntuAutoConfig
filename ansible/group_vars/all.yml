@@ -33,7 +33,10 @@ uv_artifacts:
   aarch64:
     archive: uv-aarch64-unknown-linux-gnu.tar.gz
     sha256: f8e23ec786b18660ade6b033b6191b7e9c283c872eeb8c4531d56a873decf160
-uv_release_base_url: "https://github.com/astral-sh/uv/releases/download/{{ uv_version }}"
+uv_release_base_url_default: "https://github.com/astral-sh/uv/releases/download/{{ uv_version }}"
+uv_release_base_url: >-
+  {{ lookup('ansible.builtin.env', 'DEVOPS_TOOLKIT_UV_RELEASE_BASE_URL')
+     | default(uv_release_base_url_default, true) }}
 goenv_version: "3.1.4"
 
 # Immutable revisions keep repeated runs reproducible. Update them deliberately.

@@ -15,6 +15,24 @@
     fail_msg: "Invalid managed firewall rule: {{ item }}"
   loop: "{{ firewall_allowed_ports }}"
 
+- name: Detect an existing DevOpsToolkit-managed allow rule
+  become: true
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - show
+      - added
+  register: firewall_added_rules
+  changed_when: false
+
+- name: Record whether the managed allow rule already exists
+  ansible.builtin.set_fact:
+    firewall_managed_allow_rule_exists: >-
+      {{
+        ('ufw allow ' ~ firewall_managed_profile_name) in firewall_added_rules.stdout
+        or ("ufw allow '" ~ firewall_managed_profile_name ~ "'") in firewall_added_rules.stdout
+      }}
+
 - name: Publish the DevOpsToolkit-owned UFW application profile
   become: true
   ansible.builtin.template:
@@ -23,7 +41,18 @@
     owner: root
     group: root
     mode: "0644"
-  notify: Reconcile DevOpsToolkit UFW application rules
+  register: firewall_managed_profile
+
+- name: Reconcile an existing managed profile before enabling deny-by-default
+  become: true
+  ansible.builtin.command:
+    argv:
+      - ufw
+      - app
+      - update
+      - "{{ firewall_managed_profile_name }}"
+  when: firewall_managed_allow_rule_exists | bool
+  changed_when: firewall_managed_profile.changed | bool
 
 - name: Allow the managed application profile before enabling the firewall
   become: true
@@ -31,6 +60,7 @@
     rule: allow
     name: "{{ firewall_managed_profile_name }}"
     comment: Managed by DevOpsToolkit
+  when: not (firewall_managed_allow_rule_exists | bool)
 
 - name: Apply default firewall policies
   become: true

@@ -8,8 +8,8 @@
 - name: Record whether the target account existed before this run
   ansible.builtin.set_fact:
     target_account_preexisting: >-
-      {{ target_user in (getent_passwd | default({})) and
-         getent_passwd[target_user] is not none }}
+      {{ target_user in (ansible_facts['getent_passwd'] | default({})) and
+         ansible_facts['getent_passwd'][target_user] is not none }}
 
 - name: Require a login method for a new target account
   ansible.builtin.assert:
@@ -45,7 +45,7 @@
 
 - name: Record the canonical target HOME
   ansible.builtin.set_fact:
-    target_account_home: "{{ getent_passwd[target_user][4] }}"
+    target_account_home: "{{ ansible_facts['getent_passwd'][target_user][4] }}"
 
 - name: Validate the canonical target HOME
   ansible.builtin.assert:

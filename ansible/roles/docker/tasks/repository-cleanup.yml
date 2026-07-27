@@ -1,0 +1,25 @@
+---
+- name: Find legacy one-line APT source files
+  become: true
+  ansible.builtin.find:
+    paths:
+      - /etc/apt
+      - /etc/apt/sources.list.d
+    patterns:
+      - sources.list
+      - "*.list"
+    file_type: file
+    recurse: false
+  register: docker_legacy_source_files
+
+- name: Remove legacy Docker repository entries that conflict with the managed source
+  become: true
+  ansible.builtin.lineinfile:
+    path: "{{ item.path }}"
+    regexp: >-
+      ^[ \t]*deb(?:-src)?[ \t]+(?:\[[^]]*\][ \t]+)?https?://download[.]docker[.]com/linux/ubuntu(?:[ /]|$)
+    state: absent
+  loop: "{{ docker_legacy_source_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: docker_legacy_sources
