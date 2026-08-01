@@ -395,6 +395,35 @@ read_release_version() {
   printf '%s\n' "${release_version}"
 }
 
+bundled_collections_valid() {
+  local collection_dir="$1"
+  python3 - "${collection_dir}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+expected = {
+    "ansible.posix": "1.5.4",
+    "community.general": "7.5.2",
+}
+marker = root / ".bundled-collections"
+expected_marker = "".join(
+    f"{name}={version}\n" for name, version in sorted(expected.items())
+)
+try:
+    if marker.read_text(encoding="utf-8") != expected_marker:
+        raise ValueError("marker mismatch")
+    actual = {}
+    for manifest in root.glob("ansible_collections/*/*/MANIFEST.json"):
+        info = json.loads(manifest.read_text(encoding="utf-8"))["collection_info"]
+        actual[f"{info['namespace']}.{info['name']}"] = str(info["version"])
+except (KeyError, OSError, ValueError, json.JSONDecodeError):
+    raise SystemExit(1)
+raise SystemExit(0 if actual == expected else 1)
+PY
+}
+
 install_release() {
   local release_version="$1" verified_sha source_dir base_dir bin_dir
   source_dir="${TEMP_DIR}/extracted/devops-toolkit"
@@ -447,8 +476,15 @@ install_release() {
 
   if [[ -f "${collection_root}/.collections-ready" ]]; then
     info "Ansible collections 已就绪，跳过安装"
+  elif [[ -f "${collection_root}/collections/.bundled-collections" ]]; then
+    if ! bundled_collections_valid "${collection_root}/collections"; then
+      [[ "${collection_root}" != "${staging_dir}" ]] || rm -rf "${staging_dir}"
+      fail "Release 内置 Ansible collections 不完整，current 未切换。"
+    fi
+    info "使用 Release 内置 Ansible collections"
+    printf '%s\n' "${verified_sha}" >"${collection_root}/.collections-ready"
   else
-    info "安装 Ansible collections 到版本目录"
+    info "旧版 Release 未内置 collections，使用 Ansible Galaxy 兼容安装"
     mkdir -p "${collection_root}/collections"
     if ! ANSIBLE_COLLECTIONS_PATH="${collection_root}/collections" \
       ANSIBLE_COLLECTIONS_PATHS="${collection_root}/collections" \

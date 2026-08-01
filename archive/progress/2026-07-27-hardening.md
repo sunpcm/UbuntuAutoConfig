@@ -57,3 +57,10 @@
 当前安装器仍在目标主机运行 `ansible-galaxy collection install`。受限网络下即使 GitHub Release、Cosign
 和 uv 都有受控镜像，Galaxy 仍可能长时间阻塞，是发布前应消除的最后一个主要下载单点。推荐把固定版本
 collections 在 Release workflow 中打入最终签名 tarball。
+
+## 2026-08-01 后续收敛
+
+上述网络边界已在后续候选版本中消除：无发布权限的验证 job 安装并验证固定版本 collections，随后通过
+短期 workflow artifact 交给全新 release runner。构建脚本再次核对 manifest、精确版本和集合范围后，将
+collections 打入最终签名 tarball。安装器优先使用包内依赖；只有安装 `v0.1.4` 及更早历史 Release 时才
+显式回退到 Galaxy。离线安装、旧版兼容和失败不切换均有回归测试。

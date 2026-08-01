@@ -27,6 +27,7 @@ sha256_file() {
 
 make_release() {
   local version="$1" output_dir="$2"
+  local collection_mode="${3:-bundled}"
   local stage="${TMP_DIR}/stage-${version}"
   rm -rf "${stage}" "${output_dir}"
   mkdir -p "${stage}/devops-toolkit/bin" "${stage}/devops-toolkit/ansible"
@@ -58,6 +59,24 @@ EOF
 ---
 collections: []
 EOF
+  if [[ "${collection_mode}" != "legacy" ]]; then
+    mkdir -p \
+      "${stage}/devops-toolkit/collections/ansible_collections/ansible/posix" \
+      "${stage}/devops-toolkit/collections/ansible_collections/community/general"
+    printf '%s\n' \
+      '{"collection_info":{"namespace":"ansible","name":"posix","version":"1.5.4"}}' \
+      >"${stage}/devops-toolkit/collections/ansible_collections/ansible/posix/MANIFEST.json"
+    printf '%s\n' \
+      '{"collection_info":{"namespace":"community","name":"general","version":"7.5.2"}}' \
+      >"${stage}/devops-toolkit/collections/ansible_collections/community/general/MANIFEST.json"
+    printf '%s\n' 'ansible.posix=1.5.4' 'community.general=7.5.2' \
+      >"${stage}/devops-toolkit/collections/.bundled-collections"
+    if [[ "${collection_mode}" == "invalid-bundle" ]]; then
+      printf '%s\n' \
+        '{"collection_info":{"namespace":"community","name":"general","version":"9.9.9"}}' \
+        >"${stage}/devops-toolkit/collections/ansible_collections/community/general/MANIFEST.json"
+    fi
+  fi
   mkdir -p "${output_dir}"
   COPYFILE_DISABLE=1 tar -C "${stage}" -czf "${output_dir}/devops-toolkit.tar.gz" devops-toolkit
   printf '%s  devops-toolkit.tar.gz\n' \
@@ -116,6 +135,7 @@ export PATH="${MOCK_BIN}:${PATH}"
 export HOME="${TMP_DIR}/home"
 export DEVOPS_TOOLKIT_TEST_GALAXY_LOG="${TMP_DIR}/galaxy.log"
 export DEVOPS_TOOLKIT_TEST_COSIGN_LOG="${TMP_DIR}/cosign.log"
+: >"${DEVOPS_TOOLKIT_TEST_GALAXY_LOG}"
 FAKE_COSIGN_SHA256="$(sha256_file "${TMP_DIR}/fake-cosign")"
 INSTALLER="${TMP_DIR}/test-install.sh"
 cat >"${INSTALLER}" <<EOF
@@ -132,8 +152,12 @@ mkdir -p "${HOME}"
 
 RELEASE_V1="${TMP_DIR}/release-v1"
 RELEASE_V2="${TMP_DIR}/release-v2"
+RELEASE_LEGACY="${TMP_DIR}/release-legacy"
+RELEASE_INVALID_BUNDLE="${TMP_DIR}/release-invalid-bundle"
 make_release v0.1.0 "${RELEASE_V1}"
 make_release v0.2.0 "${RELEASE_V2}"
+make_release v0.0.9 "${RELEASE_LEGACY}" legacy
+make_release v0.3.0 "${RELEASE_INVALID_BUNDLE}" invalid-bundle
 
 DEVOPS_TOOLKIT_DOWNLOAD_BASE="file://${RELEASE_V1}" \
   "${INSTALLER}" --user --no-run --version v0.1.0
@@ -162,8 +186,8 @@ DEVOPS_TOOLKIT_DOWNLOAD_BASE="file://${RELEASE_V1}" \
   "${INSTALLER}" --user --no-run --version v0.1.0
 [[ "$(find "${HOME}/.local/share/devops-toolkit/releases" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" == "1" ]] || \
   fail "重复安装产生了重复版本目录"
-[[ "$(wc -l <"${DEVOPS_TOOLKIT_TEST_GALAXY_LOG}" | tr -d ' ')" == "1" ]] || \
-  fail "重复安装没有跳过已就绪的 collections"
+[[ "$(wc -l <"${DEVOPS_TOOLKIT_TEST_GALAXY_LOG}" | tr -d ' ')" == "0" ]] || \
+  fail "内置 collections 的安装或重复安装仍调用了 Galaxy"
 
 # A tampered Cosign cache must be replaced from the pinned, verified source.
 COSIGN_CACHE="$(find "${HOME}/.local/share/devops-toolkit/tools" -type f -name 'cosign-v3.1.1-*' -print -quit)"
@@ -238,16 +262,46 @@ fi
 [[ ! -e "${TMP_DIR}/bad-signature-home/.local/share/devops-toolkit/current" ]] || \
   fail "Sigstore 验证失败后切换了 current"
 
-# Collection failure must not publish or activate a partial version.
+# A bundled release must install even when Galaxy is unavailable.
+OFFLINE_HOME="${TMP_DIR}/offline-home"
+mkdir -p "${OFFLINE_HOME}"
+HOME="${OFFLINE_HOME}" DEVOPS_TOOLKIT_TEST_GALAXY_FAIL=1 \
+  DEVOPS_TOOLKIT_DOWNLOAD_BASE="file://${RELEASE_V1}" \
+  "${INSTALLER}" --user --no-run --version v0.1.0 >/dev/null
+[[ "$("${OFFLINE_HOME}/.local/bin/devops-toolkit" --version)" == "v0.1.0" ]] || \
+  fail "Galaxy 不可用时未能安装内置 collections 的 Release"
+
+# A bundle marker cannot hide a missing, extra, or wrong manifest version.
+INVALID_BUNDLE_HOME="${TMP_DIR}/invalid-bundle-home"
+mkdir -p "${INVALID_BUNDLE_HOME}"
+if HOME="${INVALID_BUNDLE_HOME}" \
+  DEVOPS_TOOLKIT_DOWNLOAD_BASE="file://${RELEASE_INVALID_BUNDLE}" \
+  "${INSTALLER}" --user --no-run --version v0.3.0 >/dev/null 2>&1; then
+  fail "安装器接受了与标记不一致的 collection manifest"
+fi
+[[ ! -e "${INVALID_BUNDLE_HOME}/.local/share/devops-toolkit/current" ]] || \
+  fail "内置 collection 校验失败后切换了 current"
+
+# Legacy releases keep the runtime Galaxy compatibility path.
+LEGACY_HOME="${TMP_DIR}/legacy-home"
+mkdir -p "${LEGACY_HOME}"
+galaxy_before="$(wc -l <"${DEVOPS_TOOLKIT_TEST_GALAXY_LOG}" | tr -d ' ')"
+HOME="${LEGACY_HOME}" DEVOPS_TOOLKIT_DOWNLOAD_BASE="file://${RELEASE_LEGACY}" \
+  "${INSTALLER}" --user --no-run --version v0.0.9 >/dev/null
+galaxy_after="$(wc -l <"${DEVOPS_TOOLKIT_TEST_GALAXY_LOG}" | tr -d ' ')"
+[[ "$((galaxy_after - galaxy_before))" == "1" ]] || \
+  fail "旧版 Release 没有调用 Galaxy 兼容安装"
+
+# A legacy collection failure must not publish or activate a partial version.
 FAILED_HOME="${TMP_DIR}/failed-home"
 mkdir -p "${FAILED_HOME}"
 if HOME="${FAILED_HOME}" DEVOPS_TOOLKIT_TEST_GALAXY_FAIL=1 \
-  DEVOPS_TOOLKIT_DOWNLOAD_BASE="file://${RELEASE_V1}" \
-  "${INSTALLER}" --user --no-run >/dev/null 2>&1; then
+  DEVOPS_TOOLKIT_DOWNLOAD_BASE="file://${RELEASE_LEGACY}" \
+  "${INSTALLER}" --user --no-run --version v0.0.9 >/dev/null 2>&1; then
   fail "collection 安装失败未传递错误"
 fi
 [[ ! -e "${FAILED_HOME}/.local/share/devops-toolkit/current" ]] || fail "失败安装切换了 current"
-[[ ! -e "${FAILED_HOME}/.local/share/devops-toolkit/releases/v0.1.0" ]] || fail "失败安装发布了不完整版本"
+[[ ! -e "${FAILED_HOME}/.local/share/devops-toolkit/releases/v0.0.9" ]] || fail "失败安装发布了不完整版本"
 
 # Non-TTY execution installs but never starts the wizard.
 NON_TTY_HOME="${TMP_DIR}/non-tty-home"

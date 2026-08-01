@@ -50,6 +50,34 @@ bash -c "$(cat "${ROOT_DIR}/install.sh")" install-sh-entrypoint --help >/dev/nul
 "${ROOT_DIR}/tests/test-installer.sh"
 "${ROOT_DIR}/tests/test-release.sh"
 
+release_workflow="${ROOT_DIR}/.github/workflows/release.yml"
+if ! grep -Fq 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' \
+  "${release_workflow}" || \
+   ! grep -Fq 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093' \
+  "${release_workflow}" || \
+   ! grep -Fq 'DEVOPS_TOOLKIT_COLLECTIONS_SOURCE:' "${release_workflow}"; then
+  echo "错误：Release workflow 没有把 validate job 的固定 collections 传给隔离的签名 job。" >&2
+  exit 1
+fi
+if ! grep -Fq 'DEVOPS_TOOLKIT_COLLECTIONS_SOURCE' \
+  "${ROOT_DIR}/scripts/build-release.sh" || \
+   ! grep -Fq '.bundled-collections' "${ROOT_DIR}/scripts/build-release.sh"; then
+  echo "错误：Release 构建器没有强制打包固定 Ansible collections。" >&2
+  exit 1
+fi
+if ! grep -Fq '使用 Release 内置 Ansible collections' "${ROOT_DIR}/install.sh" || \
+   ! grep -Fq '旧版 Release 未内置 collections' "${ROOT_DIR}/install.sh"; then
+  echo "错误：安装器没有区分内置 collections 与旧版 Galaxy 兼容路径。" >&2
+  exit 1
+fi
+for entrypoint in wsl-bootstrap ubuntu-bootstrap user-only user-only-remove; do
+  if ! grep -Fq 'ANSIBLE_COLLECTIONS_PATH=' "${ROOT_DIR}/bin/${entrypoint}" || \
+     ! grep -Fq 'ANSIBLE_COLLECTIONS_PATHS=' "${ROOT_DIR}/bin/${entrypoint}"; then
+    echo "错误：${entrypoint} 没有加载 Release 内置 Ansible collections。" >&2
+    exit 1
+  fi
+done
+
 if [[ "${REQUIRE_QUALITY_TOOLS:-0}" == "1" ]] && ! command -v shellcheck >/dev/null 2>&1; then
   echo "错误：REQUIRE_QUALITY_TOOLS=1，但 shellcheck 不可用。" >&2
   exit 1

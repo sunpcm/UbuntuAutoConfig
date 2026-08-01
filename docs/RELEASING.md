@@ -41,8 +41,9 @@ git push origin "${VERSION}"
 git tag -s "${VERSION}" origin/main -m "DevOpsToolkit ${VERSION}"
 ```
 
-推送后工作流会：`verify-ansible.sh` → 构建固定名产物 → Cosign 用 GitHub OIDC 签名 →
-自校验 Sigstore 身份与打包版本 → 创建 Release 并上传三个资产。
+推送后工作流会：安装并验证固定版本 collections → `verify-ansible.sh` → 将已验证 collections 传给全新
+release runner → 构建固定名产物 → Cosign 用 GitHub OIDC 签名 → 自校验 Sigstore 身份与打包版本 →
+创建 Release 并上传三个资产。release runner 本身不会从 PyPI 或 Ansible Galaxy 安装依赖。
 
 ## 发布后验证
 
@@ -57,6 +58,23 @@ gh release view "${VERSION}" --json assets -q '.assets[].name'
 devops-toolkit.tar.gz
 devops-toolkit.tar.gz.sha256
 devops-toolkit.tar.gz.sigstore.json
+```
+
+确认签名 tarball 内包含精确的 collection 标记：
+
+```bash
+TMP_DIR="$(mktemp -d)"
+gh release download "${VERSION}" --pattern devops-toolkit.tar.gz --dir "${TMP_DIR}"
+tar -xOf "${TMP_DIR}/devops-toolkit.tar.gz" \
+  devops-toolkit/collections/.bundled-collections
+rm -rf "${TMP_DIR}"
+```
+
+应只输出：
+
+```text
+ansible.posix=1.5.4
+community.general=7.5.2
 ```
 
 再模拟安装器的 latest 下载确认可达：
