@@ -15,12 +15,15 @@ Release 包含三个固定名称资产：
 
 `.github/workflows/release.yml` 只在 `v*` tag 上运行，并获得最小的 `contents: write` 与 `id-token: write` 权限。流程会：
 
-1. 在无发布权限的 job 中验证源码。
-2. 验证通过后，在全新 runner 上重新 checkout 同一 tag；构建 job 不安装 PyPI 或 Ansible Galaxy 依赖。
-3. 下载固定版本 Cosign，使用仓库内固定的 SHA256 校验二进制。
-4. 通过 GitHub Actions OIDC 获取短期身份，不使用长期签名私钥或 GitHub Secret。
-5. 将证书、签名和透明日志证明写入 Sigstore bundle。
-6. 在上传 Release 前立即验证签名身份。
+1. 在无发布权限的 job 中安装固定版本 Ansible 依赖、验证源码，并把精确版本的 collections 保存为
+   仅保留一天的 workflow artifact。
+2. 验证通过后，在全新 runner 上重新 checkout 同一 tag，只恢复上一步验证过的 collections；有发布权限的
+   构建 job 不运行 PyPI 或 Ansible Galaxy 安装。
+3. 构建脚本核对 collection manifest、精确版本和完整集合，再把它们写入最终 tarball；签名覆盖整个产物。
+4. 下载固定版本 Cosign，使用仓库内固定的 SHA256 校验二进制。
+5. 通过 GitHub Actions OIDC 获取短期身份，不使用长期签名私钥或 GitHub Secret。
+6. 将证书、签名和透明日志证明写入 Sigstore bundle。
+7. 在上传 Release 前立即验证签名身份。
 
 安装器也会下载固定版本 Cosign，并用内置的平台 SHA256 校验。验证条件不是“存在一个合法签名”即可，而是同时要求：
 
@@ -91,7 +94,8 @@ Release workflow 已引用该 Environment。Environment 不需要配置 Cosign �
 - 不需要时关闭 Allow GitHub Actions to create and approve pull requests。
 - 只允许 GitHub 官方和经过审核的 Actions。
 
-本项目引用的 GitHub Actions 已固定到完整 commit SHA，避免上游移动 tag 后改变执行代码。
+本项目引用的 GitHub Actions（包括 collections 在 job 间传递使用的 artifact actions）已固定到完整
+commit SHA，避免上游移动 tag 后改变执行代码。
 
 ## 手工验证 Release
 

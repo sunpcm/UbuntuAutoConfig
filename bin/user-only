@@ -10,6 +10,11 @@ if [[ -z "${INVENTORY}" ]]; then
   exit 1
 fi
 
+COLLECTIONS_DIR="${ROOT_DIR}/collections"
+if [[ -d "${COLLECTIONS_DIR}/ansible_collections" ]]; then
+  export ANSIBLE_COLLECTIONS_PATH="${COLLECTIONS_DIR}"
+  export ANSIBLE_COLLECTIONS_PATHS="${COLLECTIONS_DIR}"
+fi
 export ANSIBLE_CONFIG="${ROOT_DIR}/ansible/ansible.cfg"
 exec ansible-playbook -i "${INVENTORY}" \
   "${ROOT_DIR}/ansible/playbooks/user-only.yml" "${@:2}"

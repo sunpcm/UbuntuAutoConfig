@@ -30,6 +30,9 @@
 
 安装器会同时验证 Release 的 SHA256 和 Sigstore 身份，要求产物来自本仓库的 Release workflow 与对应 tag；验证失败不会降级安装。首次运行会下载并缓存固定版本 Cosign。
 
+从下一版 `v0.1.5` 起，签名 Release 还会内置固定版本的 Ansible collections，目标服务器安装阶段不再
+依赖 Ansible Galaxy；从源码运行仍需按下节安装 collections。
+
 生产环境建议固定版本：
 
 ```bash

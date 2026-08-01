@@ -46,7 +46,8 @@ export PATH="$HOME/.local/bin:$PATH"
 4. 核对包内 `VERSION` 与请求的版本。
 5. 下载或复用固定版本 Cosign，并用安装器内置 SHA256 校验 Cosign 本身。
 6. 验证 Release 的 OIDC issuer、仓库、workflow、tag ref 和触发事件。
-7. 安装版本内 Ansible collections；全部成功后才原子切换 `current`。
+7. 校验并启用签名包内的固定版本 Ansible collections；全部成功后才原子切换 `current`。历史 Release
+   不含内置 collections 时才显式回退到 Ansible Galaxy 兼容安装。
 
 任何一步失败，当前已安装版本都不会切换。Cosign 验证需要访问 Sigstore 信任根和透明日志服务；受限网络应显式放行，不要通过删除验证逻辑绕过。
 
@@ -85,7 +86,8 @@ DEVOPS_TOOLKIT_VERSION=v0.1.4 \
 
 ## 升级
 
-重新执行安装命令即可升级到 latest。安装器会保留旧版本目录；重复安装相同版本会复用已验证文件，并确保该版本的 Ansible collections 已安装。
+重新执行安装命令即可升级到 latest。安装器会保留旧版本目录；重复安装相同版本会复用已验证文件，并确保
+该版本的 Ansible collections 已就绪。
 
 升级到指定版本：
 
@@ -179,14 +181,15 @@ curl -I https://tuf-repo-cdn.sigstore.dev
 
 网络恢复后重新运行安装器即可；失败过程不会删除旧版本。
 
-### Ansible Galaxy 安装 collections 长时间无响应
+### 内置 collections 与旧版本兼容
 
-当前版本会在目标主机运行 `ansible-galaxy collection install`，下载 `ansible.posix` 与
-`community.general` 的固定版本。GitHub Release、Cosign 和 uv 镜像均不能覆盖这个下载源；受限网络中
-Galaxy 仍可能成为安装阶段的单点。中断或失败不会切换 `current`，网络恢复后可重试。
+从 `v0.1.5` 起，Release tarball 内置并签名覆盖固定版本的 `ansible.posix` 与
+`community.general`。安装器会核对包内 manifest 和版本标记，安装阶段不再访问 Ansible Galaxy；
+这消除了 GitHub 可达但 Galaxy 不可达时的安装单点。
 
-在仓库把 collections 纳入签名 Release 产物前，不建议通过放宽版本或使用系统自带旧 collection 绕过；
-Ubuntu 22.04 的旧版本可能与较新的 ansible-core 不兼容。从源码运行时，应先显式完成：
+`v0.1.4` 及更早的历史 Release 没有内置标记。新版安装器会明确提示兼容模式，并继续通过
+`ansible-galaxy collection install` 安装固定依赖；下载失败时仍不会切换 `current`。从源码运行不包含
+Release 产物内的 collections，仍应先显式完成：
 
 ```bash
 ansible-galaxy collection install -r ansible/requirements.yml

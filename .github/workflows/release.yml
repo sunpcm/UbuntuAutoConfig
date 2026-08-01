@@ -28,10 +28,22 @@ jobs:
       - name: Install validation dependencies
         run: |
           python -m pip install ansible-core==2.18.6
-          ansible-galaxy collection install -r ansible/requirements.yml
+          ansible-galaxy collection install \
+            --requirements-file ansible/requirements.yml \
+            --collections-path "${RUNNER_TEMP}/release-collections"
+          echo "ANSIBLE_COLLECTIONS_PATH=${RUNNER_TEMP}/release-collections" >>"${GITHUB_ENV}"
+          echo "ANSIBLE_COLLECTIONS_PATHS=${RUNNER_TEMP}/release-collections" >>"${GITHUB_ENV}"
 
       - name: Validate source
         run: ./tests/verify-ansible.sh
+
+      - name: Preserve validated collections for packaging
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-collections-${{ github.sha }}
+          path: ${{ runner.temp }}/release-collections
+          if-no-files-found: error
+          retention-days: 1
 
   release:
     needs: validate
@@ -50,7 +62,15 @@ jobs:
       - name: Confirm clean source
         run: test -z "$(git status --porcelain)"
 
+      - name: Restore validated collections
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-collections-${{ github.sha }}
+          path: ${{ runner.temp }}/release-collections
+
       - name: Build fixed-name assets
+        env:
+          DEVOPS_TOOLKIT_COLLECTIONS_SOURCE: ${{ runner.temp }}/release-collections
         run: ./scripts/build-release.sh "${GITHUB_REF_NAME}" dist
 
       - name: Install pinned Cosign
