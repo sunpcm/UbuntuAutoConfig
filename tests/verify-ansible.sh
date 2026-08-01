@@ -50,9 +50,9 @@ bash -c "$(cat "${ROOT_DIR}/install.sh")" install-sh-entrypoint --help >/dev/nul
 "${ROOT_DIR}/tests/test-installer.sh"
 "${ROOT_DIR}/tests/test-release.sh"
 
-if ! grep -Fq '(umask 022; ln -s "releases/${release_version}"' \
+if ! grep -Fq "(umask 022; ln -s \"releases/\${release_version}\"" \
   "${ROOT_DIR}/install.sh" || \
-   ! grep -Fq '(umask 022; ln -s "${current_link}/bin/devops-toolkit"' \
+   ! grep -Fq "(umask 022; ln -s \"\${current_link}/bin/devops-toolkit\"" \
   "${ROOT_DIR}/install.sh"; then
   echo "错误：安装器符号链接没有覆盖 macOS 的私有 umask，sudo 安装后普通用户将无法解析命令。" >&2
   exit 1
