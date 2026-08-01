@@ -508,8 +508,11 @@ install_release() {
   local current_tmp launcher_tmp
   current_tmp="${base_dir}/.current-$$"
   launcher_tmp="${bin_dir}/.devops-toolkit-$$"
-  ln -s "releases/${release_version}" "${current_tmp}"
-  ln -s "${current_link}/bin/devops-toolkit" "${launcher_tmp}"
+  # macOS applies umask to symlink modes. Keep private download files under the
+  # process-wide 077 umask, but make public launcher links traversable by the
+  # non-root user that invokes an installation performed through sudo.
+  (umask 022; ln -s "releases/${release_version}" "${current_tmp}")
+  (umask 022; ln -s "${current_link}/bin/devops-toolkit" "${launcher_tmp}")
   python3 - "${current_tmp}" "${current_link}" "${launcher_tmp}" "${launcher_link}" <<'PY'
 import os
 import sys

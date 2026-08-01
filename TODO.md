@@ -11,15 +11,15 @@
 - 原根目录兼容 Playbook、`wsl-dev/`、`ubuntu-server/` tracked 资产已归档；
   `tests/verify-ansible.sh` 会阻止它们重新出现在活跃路径。
 - Ubuntu 22.04 / 24.04 已通过首次执行、第二次 `changed=0`、受控 uv 镜像和系统故障注入验证。
-- main 最近一次线上 Validate（`7232138`）通过；当前 latest Release 为 `v0.1.4`，但它早于
-  main 上的 GitHub 下载重试、停滞检测、Cosign 镜像开关和内置 collections。
+- `v0.1.5` 已签名发布并验证内置 collections；macOS root 系统安装暴露出私有 `umask` 导致普通用户
+  无法解析 launcher 符号链接的问题，修复与回归护栏已完成，等待 patch Release。
 - 安装器测试已覆盖 SHA256 错误、缺少 checksum / Sigstore bundle、危险 tar、版本不匹配、
   Ubuntu 22.04 Ansible 版本过低等失败边界。
 
 ## P0：发布前阻塞项
 
-- [ ] 从通过验收的 main 发布下一个不可变版本，确认 Validate/Release 全绿、三个资产齐全，并分别用 latest 与
-      `--version` 安装命令验证 SHA256 + Sigstore 身份。
+- [ ] 发布包含 macOS launcher 符号链接权限修复的 patch 版本，确认 Validate/Release 全绿、三个资产齐全，
+      并分别用 latest 与 `--version` 验证 SHA256、Sigstore 身份及普通用户执行 `devops-toolkit --version`。
 
 ## P1：升级闭环
 

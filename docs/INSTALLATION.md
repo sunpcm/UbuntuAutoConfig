@@ -140,6 +140,8 @@ ansible-galaxy collection install -r ansible/requirements.yml
 ## 安全边界
 
 - 临时下载目录权限为 `0700`，资产文件为 `0600`。
+- 系统安装的 `current` 与 launcher 符号链接会保持普通用户可遍历；即使安装器由 `sudo` 在 macOS 执行，
+  非 root 用户也能解析 Release 根目录并读取正确版本。
 - 安装器拒绝绝对路径、`..`、额外顶层目录、符号链接和设备文件，避免 tar 路径穿越。
 - SHA256 用于完整性检查；Sigstore 进一步要求产物来自本仓库、指定 Release workflow 和对应 tag。
 - Sigstore 验证失败时不会降级为只检查 SHA256。

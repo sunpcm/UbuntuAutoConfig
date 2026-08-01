@@ -174,8 +174,12 @@ from pathlib import Path
 
 home = Path(sys.argv[1])
 launcher = home / ".local/bin/devops-toolkit"
+current = home / ".local/share/devops-toolkit/current"
 release = home / ".local/share/devops-toolkit/releases/v0.1.0/bin/devops-toolkit"
 assert launcher.is_symlink()
+assert current.is_symlink()
+assert stat.S_IMODE(launcher.lstat().st_mode) & 0o055 == 0o055
+assert stat.S_IMODE(current.lstat().st_mode) & 0o055 == 0o055
 assert stat.S_IMODE(release.stat().st_mode) == 0o755
 assert stat.S_IMODE((release.parents[1] / ".release-sha256").stat().st_mode) == 0o600
 assert stat.S_IMODE(release.parents[1].stat().st_mode) == 0o755
